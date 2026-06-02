@@ -1,0 +1,220 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\attendance_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\screens\\attendance_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\clients_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\screens\\clients_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\dashboard_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\screens\\dashboard_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\settings_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\screens\\settings_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\home_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\screens\\home_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\fees_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\screens\\fees_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\workers_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\screens\\workers_screen.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\pubspec.yaml||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:pubspec.yaml||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\pubspec.lock||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:pubspec.lock||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\providers\\workforce_provider.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\providers\\workforce_provider.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\main.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\main.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\models\\client.dart||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:lib\\models\\client.dart||{8B382828-6202-11D1-8870-0000F87579D2}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "attendance_screen.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\attendance_screen.dart",
+              "RelativeDocumentMoniker": "lib\\screens\\attendance_screen.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\attendance_screen.dart",
+              "RelativeToolTip": "lib\\screens\\attendance_screen.dart",
+              "ViewState": "AgIAAPUBAAAAAAAAAAAAADAAAAAaAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:31:35.042Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "clients_screen.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\clients_screen.dart",
+              "RelativeDocumentMoniker": "lib\\screens\\clients_screen.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\clients_screen.dart",
+              "RelativeToolTip": "lib\\screens\\clients_screen.dart",
+              "ViewState": "AgIAAGwAAAAAAAAAAAAAAA8AAAAbAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:31:18.512Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "fees_screen.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\fees_screen.dart",
+              "RelativeDocumentMoniker": "lib\\screens\\fees_screen.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\fees_screen.dart",
+              "RelativeToolTip": "lib\\screens\\fees_screen.dart",
+              "ViewState": "AgIAADwAAAAAAAAAAAAAAFgAAAA9AAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:30:03.162Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "workers_screen.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\workers_screen.dart",
+              "RelativeDocumentMoniker": "lib\\screens\\workers_screen.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\workers_screen.dart",
+              "RelativeToolTip": "lib\\screens\\workers_screen.dart",
+              "ViewState": "AgIAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:29:52.589Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "settings_screen.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\settings_screen.dart",
+              "RelativeDocumentMoniker": "lib\\screens\\settings_screen.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\settings_screen.dart",
+              "RelativeToolTip": "lib\\screens\\settings_screen.dart",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAfAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:29:32.527Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "pubspec.lock",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\pubspec.lock",
+              "RelativeDocumentMoniker": "pubspec.lock",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\pubspec.lock",
+              "RelativeToolTip": "pubspec.lock",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:28:13.7Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "dashboard_screen.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\dashboard_screen.dart",
+              "RelativeDocumentMoniker": "lib\\screens\\dashboard_screen.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\dashboard_screen.dart",
+              "RelativeToolTip": "lib\\screens\\dashboard_screen.dart",
+              "ViewState": "AgIAAGAAAAAAAAAAAAAAAEoAAAAPAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:27:56.131Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "pubspec.yaml",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\pubspec.yaml",
+              "RelativeDocumentMoniker": "pubspec.yaml",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\pubspec.yaml",
+              "RelativeToolTip": "pubspec.yaml",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAPAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003775|",
+              "WhenOpened": "2026-02-07T12:10:26.644Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 11,
+              "Title": "client.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\models\\client.dart",
+              "RelativeDocumentMoniker": "lib\\models\\client.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\models\\client.dart",
+              "RelativeToolTip": "lib\\models\\client.dart",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:27:34.474Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "home_screen.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\home_screen.dart",
+              "RelativeDocumentMoniker": "lib\\screens\\home_screen.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\screens\\home_screen.dart",
+              "RelativeToolTip": "lib\\screens\\home_screen.dart",
+              "ViewState": "AgIAACIAAAAAAAAAAAAswEoAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:14:33.142Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 9,
+              "Title": "workforce_provider.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\providers\\workforce_provider.dart",
+              "RelativeDocumentMoniker": "lib\\providers\\workforce_provider.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\providers\\workforce_provider.dart",
+              "RelativeToolTip": "lib\\providers\\workforce_provider.dart",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABMAAAAdAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:13:01.35Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 10,
+              "Title": "main.dart",
+              "DocumentMoniker": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\main.dart",
+              "RelativeDocumentMoniker": "lib\\main.dart",
+              "ToolTip": "C:\\Users\\dncjf\\Desktop\\workforce_manager\\lib\\main.dart",
+              "RelativeToolTip": "lib\\main.dart",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAADUAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2026-02-07T12:12:18.992Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

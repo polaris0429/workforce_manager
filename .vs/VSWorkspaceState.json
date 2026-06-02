@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\lib",
+    "\\lib\\models",
+    "\\lib\\providers",
+    "\\lib\\screens",
+    "\\lib\\services",
+    "\\lib\\utils",
+    "\\lib\\widgets",
+    "\\windows",
+    "\\windows\\runner"
+  ],
+  "SelectedNode": "\\lib\\providers\\workforce_provider.dart",
+  "PreviewInSolutionExplorer": false
+}

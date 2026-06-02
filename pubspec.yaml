@@ -1,0 +1,43 @@
+name: workforce_manager
+description: "우신인력 전산관리"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  flutter_localizations:
+    sdk: flutter
+
+  # 파일 경로 및 선택
+  path_provider: ^2.1.1
+  path: ^1.8.3
+  file_picker: ^6.1.1
+
+  # SQLite (Windows 데스크탑용 FFI 포함)
+  sqflite: ^2.3.2
+  sqflite_common_ffi: ^2.3.3
+
+  # 상태관리 / 유틸
+  provider: ^6.1.1
+  intl: ^0.20.2
+  shared_preferences: ^2.2.3
+  cupertino_icons: ^1.0.8
+  url_launcher: ^6.3.2
+  excel: ^4.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png
