@@ -18,7 +18,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadLocalPath();
-    // 백업 상태 변경 시 UI 자동 갱신
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WorkforceProvider>().backupStatusStream.listen((_) {
         if (mounted) setState(() {});
@@ -40,8 +39,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     await provider.addBackupPath(selected);
-    if (mounted) ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('백업 경로 추가됨:\n$selected')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('백업 경로 추가됨:\n$selected')));
   }
 
   Future<void> _confirmRemovePath(String path) async {
@@ -52,17 +50,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: Text('아래 경로를 백업 목록에서 제거하시겠습니까?\n\n$path'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('삭제', style: TextStyle(color: Colors.red)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('삭제', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
     if (ok == true && mounted) {
       await context.read<WorkforceProvider>().removeBackupPath(path);
-      if (mounted) ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('백업 경로가 제거되었습니다.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('백업 경로가 제거되었습니다.')));
     }
   }
 
@@ -90,6 +85,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(title: const Text('⚙️ 설정')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
 
+        // ── 등록 제안 설정 ──────────────────────────────────
+        _sectionHeader('출근 등록 자동 제안'),
+        Card(child: Column(children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.person_add_outlined, color: Colors.blue),
+            title: const Text('근로자 등록 제안'),
+            subtitle: const Text('직접 입력한 근로자를 목록에 등록할지 물어봅니다.',
+                style: TextStyle(fontSize: 12)),
+            value: provider.suggestWorkerRegistration,
+            activeColor: const Color(0xFF92D050),
+            onChanged: (val) => context.read<WorkforceProvider>().setSuggestWorkerRegistration(val),
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          SwitchListTile(
+            secondary: const Icon(Icons.business_outlined, color: Colors.blue),
+            title: const Text('거래처 등록 제안'),
+            subtitle: const Text('직접 입력한 거래처를 목록에 등록할지 물어봅니다.',
+                style: TextStyle(fontSize: 12)),
+            value: provider.suggestClientRegistration,
+            activeColor: const Color(0xFF92D050),
+            onChanged: (val) => context.read<WorkforceProvider>().setSuggestClientRegistration(val),
+          ),
+        ])),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(12, 4, 12, 12),
+          child: Text('꺼두면 출근 등록 시 등록 여부를 묻지 않습니다.',
+              style: TextStyle(fontSize: 12, color: Colors.grey)),
+        ),
+
         // ── 기본 저장 경로 ──────────────────────────────────
         _sectionHeader('기본 저장 경로'),
         Card(child: ListTile(
@@ -97,10 +121,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('데이터 저장 위치'),
           subtitle: Text(_localDataPath.isEmpty ? '불러오는 중...' : _localDataPath,
               style: const TextStyle(fontSize: 12)),
-          trailing: const Tooltip(
-            message: '기본 경로는 변경할 수 없습니다.',
-            child: Icon(Icons.lock_outline, size: 18, color: Colors.grey),
-          ),
+          trailing: const Tooltip(message: '기본 경로는 변경할 수 없습니다.',
+              child: Icon(Icons.lock_outline, size: 18, color: Colors.grey)),
         )),
         const Padding(
           padding: EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -111,119 +133,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // ── 추가 백업 경로 ──────────────────────────────────
         _sectionHeader('추가 백업 경로'),
 
-        // 미완료 알림 배너
         if (hasPending)
           Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.shade300),
-            ),
+            decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade300)),
             child: Row(children: [
               const Icon(Icons.sync_problem, color: Colors.orange, size: 20),
               const SizedBox(width: 10),
-              Expanded(child: Text(
-                '${pendingPaths.length}개 경로에 미완료 백업이 있습니다.\n'
-                '30초마다 자동 재시도합니다.',
-                style: const TextStyle(fontSize: 12, color: Colors.orange),
-              )),
+              Expanded(child: Text('${pendingPaths.length}개 경로에 미완료 백업이 있습니다.\n30초마다 자동 재시도합니다.',
+                  style: const TextStyle(fontSize: 12, color: Colors.orange))),
               if (_isRetrying)
-                const SizedBox(width: 20, height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
+                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
               else
-                TextButton(
-                  onPressed: _retryNow,
-                  child: const Text('지금 시도', style: TextStyle(color: Colors.orange)),
-                ),
+                TextButton(onPressed: _retryNow, child: const Text('지금 시도', style: TextStyle(color: Colors.orange))),
             ]),
           ),
 
         Card(child: Column(children: [
-
           if (backupPaths.isEmpty)
-            const ListTile(
-              leading: Icon(Icons.info_outline, color: Colors.grey),
-              title: Text('등록된 백업 경로가 없습니다.', style: TextStyle(color: Colors.grey)),
-            )
+            const ListTile(leading: Icon(Icons.info_outline, color: Colors.grey),
+                title: Text('등록된 백업 경로가 없습니다.', style: TextStyle(color: Colors.grey)))
           else
             ...backupPaths.asMap().entries.map((entry) {
               final idx    = entry.key;
               final path   = entry.value;
               final isPend = pendingPaths.contains(path);
               final status = statusMap[path] ?? BackupPathStatus.unknown;
-
               return Column(children: [
                 ListTile(
-                  leading: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Colors.blue.shade50,
-                    child: Text('${idx + 1}',
-                        style: TextStyle(fontSize: 12, color: Colors.blue.shade700,
-                            fontWeight: FontWeight.bold)),
-                  ),
+                  leading: CircleAvatar(radius: 14, backgroundColor: Colors.blue.shade50,
+                      child: Text('${idx + 1}', style: TextStyle(fontSize: 12, color: Colors.blue.shade700, fontWeight: FontWeight.bold))),
                   title: Text(path, style: const TextStyle(fontSize: 13)),
                   subtitle: Row(children: [
-                    _statusDot(status, isPend),
-                    const SizedBox(width: 6),
-                    Text(_statusLabel(status, isPend),
-                        style: TextStyle(fontSize: 11, color: _statusColor(status, isPend))),
+                    _statusDot(status, isPend), const SizedBox(width: 6),
+                    Text(_statusLabel(status, isPend), style: TextStyle(fontSize: 11, color: _statusColor(status, isPend))),
                   ]),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    tooltip: '이 경로 삭제',
-                    onPressed: () => _confirmRemovePath(path),
-                  ),
+                  trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      tooltip: '이 경로 삭제', onPressed: () => _confirmRemovePath(path)),
                 ),
-                if (idx < backupPaths.length - 1)
-                  const Divider(height: 1, indent: 16, endIndent: 16),
+                if (idx < backupPaths.length - 1) const Divider(height: 1, indent: 16, endIndent: 16),
               ]);
             }),
-
           const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline, color: Colors.blue),
-            title: const Text('백업 경로 추가', style: TextStyle(color: Colors.blue)),
-            onTap: _addBackupPath,
-          ),
+          ListTile(leading: const Icon(Icons.add_circle_outline, color: Colors.blue),
+              title: const Text('백업 경로 추가', style: TextStyle(color: Colors.blue)),
+              onTap: _addBackupPath),
         ])),
 
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-          child: Text(
-            '데이터 변경 시 기본 경로와 모든 추가 백업 경로에 동시에 저장됩니다.\n'
-            '경로가 오프라인이거나 접근 불가 시 미완료 큐에 등록되며 30초마다 자동 재시도합니다.',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-          ),
+          child: Text('데이터 변경 시 기본 경로와 모든 추가 백업 경로에 동시에 저장됩니다.\n경로가 오프라인이거나 접근 불가 시 미완료 큐에 등록되며 30초마다 자동 재시도합니다.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         ),
 
-        // 지금 백업 버튼 (항상 표시)
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-          child: SizedBox(
-            width: double.infinity,
+          child: SizedBox(width: double.infinity,
             child: OutlinedButton.icon(
-              icon: _isRetrying
-                  ? const SizedBox(width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.cloud_sync),
+              icon: _isRetrying ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.cloud_sync),
               label: Text(_isRetrying ? '백업 중...' : '지금 백업 동기화'),
               onPressed: _isRetrying ? null : _retryNow,
-            ),
-          ),
+            )),
         ),
       ]),
     );
   }
 
-  // 상태 표시 점
   Widget _statusDot(BackupPathStatus status, bool isPending) {
-    final color = _statusColor(status, isPending);
-    return Container(
-      width: 8, height: 8,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-    );
+    return Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: _statusColor(status, isPending)));
   }
 
   Color _statusColor(BackupPathStatus status, bool isPending) {
@@ -247,8 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _sectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 8),
-      child: Text(title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+      child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
     );
   }
 }
