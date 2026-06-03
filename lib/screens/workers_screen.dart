@@ -334,7 +334,8 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
   late TextEditingController _careerCtrl;
   late TextEditingController _notesCtrl;
 
-  String _gender = '';
+  // ValueNotifier로 관리 → setState 불필요 → TextFormField rebuild 없음 → 커서 안 튐
+  late ValueNotifier<String> _genderNotifier;
   File?  _frontImage;
   File?  _backImage;
 
@@ -342,7 +343,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
   void initState() {
     super.initState();
     final w          = widget.worker;
-    _gender          = w?.gender ?? '';
+    _genderNotifier  = ValueNotifier<String>(w?.gender ?? '');
     _nameCtrl        = TextEditingController(text: w?.name ?? '');
     // 주민번호: 저장된 숫자열 → 화면 포맷
     _residentCtrl    = TextEditingController(
@@ -360,6 +361,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
 
   @override
   void dispose() {
+    _genderNotifier.dispose();
     for (final c in [_nameCtrl, _residentCtrl, _addressCtrl, _phoneCtrl, _homePhoneCtrl,
         _bankNameCtrl, _bankAccountCtrl, _careerCtrl, _notesCtrl]) c.dispose();
     super.dispose();
@@ -377,15 +379,15 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    // 주민번호: 대시 제거 후 숫자만 저장
     final cleanResident  = ResidentNumberFormatter.strip(_residentCtrl.text);
     final cleanPhone     = _phoneCtrl.text.replaceAll('-', '').trim();
     final cleanHomePhone = _homePhoneCtrl.text.replaceAll('-', '').trim();
+    final gender         = _genderNotifier.value;
     final provider       = context.read<WorkforceProvider>();
 
     if (widget.worker == null) {
       provider.addWorker(
-        name: _nameCtrl.text.trim(), gender: _gender,
+        name: _nameCtrl.text.trim(), gender: gender,
         residentNumber: cleanResident, address: _addressCtrl.text.trim(),
         phone: cleanPhone, homePhone: cleanHomePhone,
         bankName: _bankNameCtrl.text.trim(), bankAccount: _bankAccountCtrl.text.trim(),
@@ -394,7 +396,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
       );
     } else {
       provider.updateWorker(id: widget.worker!.id, data: {
-        'name': _nameCtrl.text.trim(), 'gender': _gender,
+        'name': _nameCtrl.text.trim(), 'gender': gender,
         'resident_number': cleanResident, 'address': _addressCtrl.text.trim(),
         'phone': cleanPhone, 'home_phone': cleanHomePhone,
         'bank_name': _bankNameCtrl.text.trim(), 'bank_account': _bankAccountCtrl.text.trim(),
@@ -404,10 +406,19 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
     Navigator.pop(context);
   }
 
-  Widget _genderButton(String label, MaterialColor color) {
-    final selected = _gender == label;
+  Widget _genderButtons() => ValueListenableBuilder<String>(
+    valueListenable: _genderNotifier,
+    builder: (_, gender, __) => Row(children: [
+      _genderButton('남', Colors.blue, gender),
+      const SizedBox(width: 6),
+      _genderButton('여', Colors.pink, gender),
+    ]),
+  );
+
+  Widget _genderButton(String label, MaterialColor color, String current) {
+    final selected = current == label;
     return GestureDetector(
-      onTap: () => setState(() => _gender = selected ? '' : label),
+      onTap: () => _genderNotifier.value = selected ? '' : label,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
@@ -451,7 +462,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('성별', style: TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 4),
-              Row(children: [_genderButton('남', Colors.blue), const SizedBox(width: 6), _genderButton('여', Colors.pink)]),
+              _genderButtons(), // ValueListenableBuilder → 이 위젯 전체 rebuild 없음
             ]),
           ]),
           const SizedBox(height: 6),

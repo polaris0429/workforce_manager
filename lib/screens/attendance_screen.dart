@@ -79,7 +79,9 @@ class _KeyboardAutocompleteState<T> extends State<_KeyboardAutocomplete<T>> {
     final text = widget.displayString(item);
     widget.controller.text = text;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.controller.text == text) widget.controller.selection = TextSelection.collapsed(offset: text.length);
+      if (widget.controller.text == text) {
+        widget.controller.selection = TextSelection.collapsed(offset: text.length);
+      }
     });
     _safeRemoveOverlay();
     setState(() { _filtered = []; _highlightedIndex = -1; });
@@ -119,150 +121,87 @@ class _KeyboardAutocompleteState<T> extends State<_KeyboardAutocomplete<T>> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 신분증 사진 미리보기 + 크게보기 + 저장 다이얼로그
+// 신분증 사진 뷰어
 // ─────────────────────────────────────────────────────────────
-void _showPhotoViewer(BuildContext context, {
-  required File? front,
-  required File? back,
-  int initialIndex = 0,
-}) {
-  showDialog(
-    context: context,
-    builder: (ctx) => _PhotoViewerDialog(front: front, back: back, initialIndex: initialIndex),
-  );
+void _showPhotoViewer(BuildContext context, {required File? front, required File? back, int initialIndex = 0}) {
+  showDialog(context: context, builder: (ctx) => _PhotoViewerDialog(front: front, back: back, initialIndex: initialIndex));
 }
 
 class _PhotoViewerDialog extends StatefulWidget {
-  final File? front;
-  final File? back;
-  final int initialIndex;
+  final File? front; final File? back; final int initialIndex;
   const _PhotoViewerDialog({required this.front, required this.back, required this.initialIndex});
-
-  @override
-  State<_PhotoViewerDialog> createState() => _PhotoViewerDialogState();
+  @override State<_PhotoViewerDialog> createState() => _PhotoViewerDialogState();
 }
 
 class _PhotoViewerDialogState extends State<_PhotoViewerDialog> {
   late int _index;
+  @override void initState() { super.initState(); _index = widget.initialIndex; }
+  File? get _cur => _index == 0 ? widget.front : widget.back;
 
-  @override
-  void initState() { super.initState(); _index = widget.initialIndex; }
-
-  File? get _currentFile => _index == 0 ? widget.front : widget.back;
-  String get _currentLabel => _index == 0 ? '앞면' : '뒷면';
-
-  Future<void> _saveToExternal(BuildContext context) async {
-    final file = _currentFile;
-    if (file == null) return;
-    final outputDir = await FilePicker.platform.getDirectoryPath();
-    if (outputDir == null) return;
+  Future<void> _save() async {
+    final file = _cur; if (file == null) return;
+    final dir = await FilePicker.platform.getDirectoryPath(); if (dir == null) return;
     try {
-      final dest = p.join(outputDir, p.basename(file.path));
+      final dest = p.join(dir, p.basename(file.path));
       await file.copy(dest);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('저장 완료: $dest')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 완료: $dest')));
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('저장 실패: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasFront = widget.front != null;
-    final hasBack  = widget.back  != null;
-
+    final label = _index == 0 ? '앞면' : '뒷면';
     return AlertDialog(
       contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       title: Row(children: [
-        Expanded(child: Text('신분증 $_currentLabel')),
-        // 앞면/뒷면 전환 탭
-        if (hasFront && hasBack)
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            _tabBtn('앞면', 0),
-            const SizedBox(width: 6),
-            _tabBtn('뒷면', 1),
-          ]),
+        Expanded(child: Text('신분증 $label')),
+        if (widget.front != null && widget.back != null) ...[
+          _tab('앞면', 0), const SizedBox(width: 6), _tab('뒷면', 1),
+        ],
       ]),
-      content: SizedBox(
-        width: 500,
-        child: _currentFile != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(_currentFile!, fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Center(
-                        child: Text('이미지를 불러올 수 없습니다.', style: TextStyle(color: Colors.grey)))))
-            : const Center(child: Text('사진이 없습니다.', style: TextStyle(color: Colors.grey))),
-      ),
+      content: SizedBox(width: 500,
+        child: _cur != null
+            ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(_cur!, fit: BoxFit.contain))
+            : const Center(child: Text('사진이 없습니다.', style: TextStyle(color: Colors.grey)))),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('닫기')),
-        if (_currentFile != null)
-          ElevatedButton.icon(
-            icon: const Icon(Icons.save_alt, size: 16),
-            label: const Text('다른 위치에 저장'),
-            onPressed: () => _saveToExternal(context),
-          ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기')),
+        if (_cur != null) ElevatedButton.icon(icon: const Icon(Icons.save_alt, size: 16), label: const Text('다른 위치에 저장'), onPressed: _save),
       ],
     );
   }
 
-  // ignore: non_constant_identifier_names
-  BuildContext get ctx => context;
-
-  Widget _tabBtn(String label, int idx) {
-    final selected = _index == idx;
-    return GestureDetector(
-      onTap: () => setState(() => _index = idx),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: selected ? Colors.blue.shade100 : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? Colors.blue.shade300 : Colors.grey.shade300),
-        ),
+  Widget _tab(String label, int idx) {
+    final sel = _index == idx;
+    return GestureDetector(onTap: () => setState(() => _index = idx),
+      child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: sel ? Colors.blue.shade100 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: sel ? Colors.blue.shade300 : Colors.grey.shade300)),
         child: Text(label, style: TextStyle(fontSize: 12,
-            color: selected ? Colors.blue.shade700 : Colors.grey.shade600,
-            fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
-      ),
-    );
+            color: sel ? Colors.blue.shade700 : Colors.grey.shade600,
+            fontWeight: sel ? FontWeight.bold : FontWeight.normal))));
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// 신분증 사진 썸네일 위젯 (출근 목록 카드용)
+// 신분증 썸네일
 // ─────────────────────────────────────────────────────────────
 class _PhotoThumbnail extends StatelessWidget {
-  final File? file;
-  final String label;
-  final VoidCallback onTap;
-
+  final File? file; final String label; final VoidCallback onTap;
   const _PhotoThumbnail({required this.file, required this.label, required this.onTap});
-
   @override
   Widget build(BuildContext context) {
     if (file == null) return const SizedBox.shrink();
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(
-          width: 44, height: 32,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.blue.shade200),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: Image.file(file!, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 16, color: Colors.grey)),
-          ),
-        ),
-        Text(label, style: TextStyle(fontSize: 9, color: Colors.blue.shade600)),
-      ]),
-    );
+    return GestureDetector(onTap: onTap, child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 44, height: 32,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
+        child: ClipRRect(borderRadius: BorderRadius.circular(3),
+          child: Image.file(file!, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 16, color: Colors.grey)))),
+      Text(label, style: TextStyle(fontSize: 9, color: Colors.blue.shade600)),
+    ]));
   }
 }
 
@@ -271,15 +210,12 @@ class _PhotoThumbnail extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
-  @override
-  State<AttendanceScreen> createState() => _AttendanceScreenState();
+  @override State<AttendanceScreen> createState() => _AttendanceScreenState();
 }
 
-class _AttendanceScreenState extends State<AttendanceScreen>
-    with SingleTickerProviderStateMixin {
+class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
-  DateTime? _customStart;
-  DateTime? _customEnd;
+  DateTime? _customStart, _customEnd;
   static const _tabLabels = ['오늘', '이번주', '이번달', '기간 지정'];
 
   @override
@@ -288,46 +224,134 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     _tabCtrl = TabController(length: _tabLabels.length, vsync: this);
     _tabCtrl.addListener(() { if (mounted) setState(() {}); });
   }
-  @override
-  void dispose() { _tabCtrl.dispose(); super.dispose(); }
+  @override void dispose() { _tabCtrl.dispose(); super.dispose(); }
 
   List<Attendance> _filtered(List<Attendance> all) {
     final now = DateTime.now();
     switch (_tabCtrl.index) {
-      case 0: return all.where((a) => _sameDay(a.workDate, now)).toList();
+      case 0: return all.where((a) => _same(a.workDate, now)).toList();
       case 1: final s = DateTime(now.year, now.month, now.day-(now.weekday-1)); return all.where((a) => !a.workDate.isBefore(s)).toList();
       case 2: return all.where((a) => a.workDate.year == now.year && a.workDate.month == now.month).toList();
       case 3:
         if (_customStart == null && _customEnd == null) return all;
         final s = _customStart != null ? DateTime(_customStart!.year, _customStart!.month, _customStart!.day) : DateTime(2000);
-        final e = _customEnd   != null ? DateTime(_customEnd!.year, _customEnd!.month, _customEnd!.day, 23, 59, 59) : DateTime(2100);
+        final e = _customEnd   != null ? DateTime(_customEnd!.year,   _customEnd!.month,   _customEnd!.day, 23, 59, 59) : DateTime(2100);
         return all.where((a) => !a.workDate.isBefore(s) && !a.workDate.isAfter(e)).toList();
       default: return all;
     }
   }
-  bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _same(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
-  Future<void> _pickCustomRange() async {
-    final start = await showDatePicker(context: context, initialDate: _customStart ?? DateTime.now(),
-        firstDate: DateTime(2020), lastDate: DateTime(2030), helpText: '시작 날짜 선택');
-    if (start == null || !mounted) return;
-    final end = await showDatePicker(context: context, initialDate: _customEnd ?? start,
-        firstDate: start, lastDate: DateTime(2030), helpText: '종료 날짜 선택');
-    if (end == null || !mounted) return;
-    setState(() { _customStart = start; _customEnd = end; });
+  Future<void> _pickRange() async {
+    final s = await showDatePicker(context: context, initialDate: _customStart ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2030), helpText: '시작 날짜');
+    if (s == null || !mounted) return;
+    final e = await showDatePicker(context: context, initialDate: _customEnd ?? s, firstDate: s, lastDate: DateTime(2030), helpText: '종료 날짜');
+    if (e == null || !mounted) return;
+    setState(() { _customStart = s; _customEnd = e; });
   }
 
   void _confirmDelete(BuildContext context, Attendance item) {
-    final df = DateFormat('yyyy-MM-dd');
     showDialog(context: context, builder: (ctx) => AlertDialog(
       title: const Text('삭제 확인'),
-      content: Text('${df.format(item.workDate)} - ${item.workerName}\n(${item.clientName}) 출근 기록을 삭제하시겠습니까?\n\n삭제 후 복구할 수 없습니다.'),
+      content: Text('${DateFormat('yyyy-MM-dd').format(item.workDate)} - ${item.workerName}\n(${item.clientName}) 출근 기록을 삭제하시겠습니까?\n\n삭제 후 복구할 수 없습니다.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
         TextButton(style: TextButton.styleFrom(foregroundColor: Colors.red),
           onPressed: () { context.read<WorkforceProvider>().deleteAttendance(item.id); Navigator.pop(ctx); },
           child: const Text('삭제')),
       ],
+    ));
+  }
+
+  // ── 등록 제안 다이얼로그 (AttendanceScreen context에서 띄움) ─
+  // AttendanceDialog가 닫힌 뒤에도 AttendanceScreen은 살아있으므로
+  // 여기서 띄우면 context.mounted 문제가 없음
+  void showWorkerSuggestion(BuildContext screenCtx, {
+    required WorkforceProvider provider,
+    required String workerName,
+    required String gender,
+    required String residentNumber,
+    required String phone,
+    required String homePhone,
+    required String address,
+    required String bankName,
+    required String bankAccount,
+    required String career,
+    required String notes,
+    required File? frontImage,
+    required File? backImage,
+    required bool needClient,
+    required VoidCallback onClientSuggestion,
+  }) {
+    if (!provider.suggestWorkerRegistration) {
+      if (needClient) onClientSuggestion();
+      return;
+    }
+    final cleanPhone = phone.replaceAll('-', '').trim();
+    if (provider.workers.any((w) => w.phone.replaceAll('-', '').trim() == cleanPhone)) {
+      if (needClient) onClientSuggestion();
+      return;
+    }
+    showDialog(context: screenCtx, builder: (ctx) => AlertDialog(
+      title: const Row(children: [Icon(Icons.person_add, color: Colors.blue), SizedBox(width: 8), Text('근로자 등록')]),
+      content: Text('$workerName 님을 근로자 목록에 등록하시겠습니까?\n\n등록하면 다음 출근 등록 시 자동완성에서 바로 선택할 수 있습니다.'),
+      actions: [
+        TextButton(onPressed: () { Navigator.pop(ctx); if (needClient) onClientSuggestion(); }, child: const Text('나중에')),
+        ElevatedButton.icon(icon: const Icon(Icons.person_add, size: 16), label: const Text('등록'),
+          onPressed: () {
+            provider.addWorker(
+              name: workerName, gender: gender, residentNumber: residentNumber,
+              address: address, phone: cleanPhone, homePhone: homePhone.replaceAll('-', '').trim(),
+              bankName: bankName, bankAccount: bankAccount, career: career, notes: notes,
+              idPhotoFront: frontImage, idPhotoBack: backImage,
+            );
+            Navigator.pop(ctx);
+            ScaffoldMessenger.of(screenCtx).showSnackBar(SnackBar(content: Text('$workerName 님이 근로자 목록에 등록되었습니다.')));
+            if (needClient) onClientSuggestion();
+          }),
+      ],
+    ));
+  }
+
+  void showClientSuggestion(BuildContext screenCtx, {
+    required WorkforceProvider provider,
+    required String clientName,
+    required String address,
+    required String contactPerson,
+    required String email,
+    required String phone,
+    required String officePhone,
+    required String notes,
+  }) {
+    if (!provider.suggestClientRegistration) return;
+    if (clientName.isEmpty) return;
+    if (provider.clients.any((c) => c.name == clientName)) return;
+    showDialog(context: screenCtx, builder: (ctx) => AlertDialog(
+      title: const Row(children: [Icon(Icons.business, color: Colors.blue), SizedBox(width: 8), Text('거래처 등록')]),
+      content: Text('"$clientName"을 거래처 목록에 등록하시겠습니까?\n\n등록하면 다음 출근 등록 시 자동완성에서 바로 선택할 수 있습니다.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('나중에')),
+        ElevatedButton.icon(icon: const Icon(Icons.business, size: 16), label: const Text('등록'),
+          onPressed: () {
+            provider.addClient(Client(
+              name: clientName, address: address, contactPerson: contactPerson,
+              email: email, phone: phone.replaceAll('-', '').trim(),
+              officePhone: officePhone.replaceAll('-', '').trim(), notes: notes, createdAt: DateTime.now(),
+            ));
+            Navigator.pop(ctx);
+            ScaffoldMessenger.of(screenCtx).showSnackBar(SnackBar(content: Text('"$clientName"이 거래처 목록에 등록되었습니다.')));
+          }),
+      ],
+    ));
+  }
+
+  void _showDialog(BuildContext context, {Attendance? attendance}) {
+    // AttendanceScreen의 context를 다이얼로그에 전달
+    showDialog(context: context, builder: (_) => AttendanceDialog(
+      attendance: attendance,
+      screenContext: context,         // ← 핵심: 부모 context 전달
+      onWorkerSuggestion: showWorkerSuggestion,
+      onClientSuggestion: showClientSuggestion,
     ));
   }
 
@@ -343,9 +367,8 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         actions: [
           Padding(padding: const EdgeInsets.only(right: 12),
             child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF92D050), foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF92D050), foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
               icon: const Icon(Icons.add), label: const Text('출근 등록'),
               onPressed: () => _showDialog(context))),
         ],
@@ -354,23 +377,18 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       ),
       body: Column(children: [
         if (_tabCtrl.index == 3)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: Colors.grey.shade50,
+          Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), color: Colors.grey.shade50,
             child: Row(children: [
               Expanded(child: OutlinedButton.icon(icon: const Icon(Icons.calendar_today, size: 16),
-                  label: Text(_customStart != null ? DateFormat('yyyy-MM-dd').format(_customStart!) : '시작 날짜'),
-                  onPressed: _pickCustomRange)),
+                  label: Text(_customStart != null ? DateFormat('yyyy-MM-dd').format(_customStart!) : '시작 날짜'), onPressed: _pickRange)),
               const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('~')),
               Expanded(child: OutlinedButton.icon(icon: const Icon(Icons.calendar_today, size: 16),
-                  label: Text(_customEnd != null ? DateFormat('yyyy-MM-dd').format(_customEnd!) : '종료 날짜'),
-                  onPressed: _pickCustomRange)),
+                  label: Text(_customEnd != null ? DateFormat('yyyy-MM-dd').format(_customEnd!) : '종료 날짜'), onPressed: _pickRange)),
               const SizedBox(width: 8),
               if (_customStart != null || _customEnd != null)
                 IconButton(icon: const Icon(Icons.clear, size: 18), tooltip: '초기화',
                     onPressed: () => setState(() { _customStart = null; _customEnd = null; })),
-            ]),
-          ),
+            ])),
         Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
           child: Align(alignment: Alignment.centerLeft,
             child: Text('${list.length}건', style: TextStyle(fontSize: 12, color: Colors.grey[600])))),
@@ -380,126 +398,101 @@ class _AttendanceScreenState extends State<AttendanceScreen>
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                   itemCount: list.length,
-                  itemBuilder: (context, i) {
+                  itemBuilder: (ctx, i) {
                     final item  = list[i];
                     final front = ImageHelper.getFileFromPath(item.idPhotoPath);
                     final back  = ImageHelper.getFileFromPath(item.idPhotoBackPath);
-                    final hasPhoto = front != null || back != null;
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: () => _showDialog(context, attendance: item),
+                    return Card(margin: const EdgeInsets.only(bottom: 10),
+                      child: InkWell(borderRadius: BorderRadius.circular(8), onTap: () => _showDialog(ctx, attendance: item),
                         child: Padding(padding: const EdgeInsets.all(12),
                           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            // 날짜 배지
                             Container(width: 52, padding: const EdgeInsets.symmetric(vertical: 6),
                               decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
                               child: Column(children: [
-                                Text(DateFormat('MM/dd').format(item.workDate),
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
-                                Text(DateFormat('E', 'ko').format(item.workDate),
-                                    style: TextStyle(fontSize: 11, color: Colors.blue.shade400)),
+                                Text(DateFormat('MM/dd').format(item.workDate), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                                Text(DateFormat('E', 'ko').format(item.workDate), style: TextStyle(fontSize: 11, color: Colors.blue.shade400)),
                               ])),
                             const SizedBox(width: 12),
-
-                            // 내용
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Row(children: [
                                 Text(item.workerName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                                 if (item.workerGender.isNotEmpty) ...[const SizedBox(width: 6),
                                   Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: item.workerGender == '남' ? Colors.blue.shade50 : Colors.pink.shade50,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: item.workerGender == '남' ? Colors.blue.shade200 : Colors.pink.shade200)),
-                                    child: Text(item.workerGender, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                                        color: item.workerGender == '남' ? Colors.blue.shade700 : Colors.pink.shade700)))],
+                                    decoration: BoxDecoration(color: item.workerGender == '남' ? Colors.blue.shade50 : Colors.pink.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: item.workerGender == '남' ? Colors.blue.shade200 : Colors.pink.shade200)),
+                                    child: Text(item.workerGender, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: item.workerGender == '남' ? Colors.blue.shade700 : Colors.pink.shade700)))],
                                 if (item.isPostpaid) ...[const SizedBox(width: 6),
                                   Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                    decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: Colors.orange.shade200)),
+                                    decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.shade200)),
                                     child: Text('후불', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade700)))],
                               ]),
                               const SizedBox(height: 4),
-                              Row(children: [const Icon(Icons.business, size: 13, color: Colors.grey), const SizedBox(width: 4),
-                                Text(item.clientName, style: const TextStyle(fontSize: 13))]),
+                              Row(children: [const Icon(Icons.business, size: 13, color: Colors.grey), const SizedBox(width: 4), Text(item.clientName, style: const TextStyle(fontSize: 13))]),
                               const SizedBox(height: 4),
-                              Row(children: [
-                                _infoChip('일당', cf.format(item.dailyWage), Colors.lightBlue),
-                                const SizedBox(width: 8),
-                                _infoChip('수수료', cf.format(item.commission), Colors.green),
-                              ]),
+                              Row(children: [_chip('일당', cf.format(item.dailyWage), Colors.lightBlue), const SizedBox(width: 8), _chip('수수료', cf.format(item.commission), Colors.green)]),
                               if (item.notes.isNotEmpty) ...[const SizedBox(height: 4),
                                 Row(children: [const Icon(Icons.notes, size: 13, color: Colors.grey), const SizedBox(width: 4),
-                                  Expanded(child: Text(item.notes, style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      maxLines: 2, overflow: TextOverflow.ellipsis))])],
+                                  Expanded(child: Text(item.notes, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 2, overflow: TextOverflow.ellipsis))])],
                             ])),
-
-                            // 오른쪽: 사진 썸네일 + 삭제 버튼
                             Column(mainAxisAlignment: MainAxisAlignment.start, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                              // 신분증 사진 썸네일 (앞/뒤)
-                              if (hasPhoto)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 6),
+                              if (front != null || back != null)
+                                Padding(padding: const EdgeInsets.only(bottom: 6),
                                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    if (front != null) ...[
-                                      _PhotoThumbnail(
-                                        file: front, label: '앞면',
-                                        onTap: () => _showPhotoViewer(context, front: front, back: back, initialIndex: 0),
-                                      ),
-                                      if (back != null) const SizedBox(width: 4),
-                                    ],
-                                    if (back != null)
-                                      _PhotoThumbnail(
-                                        file: back, label: '뒷면',
-                                        onTap: () => _showPhotoViewer(context, front: front, back: back, initialIndex: 1),
-                                      ),
-                                  ]),
-                                ),
-                              // 삭제 버튼
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () => _confirmDelete(context, item),
-                              ),
+                                    if (front != null) _PhotoThumbnail(file: front, label: '앞면', onTap: () => _showPhotoViewer(ctx, front: front, back: back, initialIndex: 0)),
+                                    if (front != null && back != null) const SizedBox(width: 4),
+                                    if (back  != null) _PhotoThumbnail(file: back,  label: '뒷면', onTap: () => _showPhotoViewer(ctx, front: front, back: back, initialIndex: 1)),
+                                  ])),
+                              IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => _confirmDelete(ctx, item)),
                             ]),
-                          ])),
-                      ),
-                    );
+                          ]))));
                   }),
         ),
       ]),
     );
   }
 
-  Widget _infoChip(String label, String value, MaterialColor color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: color.shade50, borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: color.shade200)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(label, style: TextStyle(fontSize: 11, color: color.shade600)),
-        const SizedBox(width: 4),
-        Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color.shade800)),
-      ]));
-  }
-
-  void _showDialog(BuildContext context, {Attendance? attendance}) {
-    showDialog(context: context, builder: (_) => AttendanceDialog(attendance: attendance));
-  }
+  Widget _chip(String label, String value, MaterialColor color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: color.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: color.shade200)),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Text(label, style: TextStyle(fontSize: 11, color: color.shade600)),
+      const SizedBox(width: 4),
+      Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color.shade800)),
+    ]));
 }
 
 // ─────────────────────────────────────────────────────────────
 // AttendanceDialog
 // ─────────────────────────────────────────────────────────────
+typedef _WorkerSuggestionFn = void Function(BuildContext screenCtx, {
+  required WorkforceProvider provider,
+  required String workerName, required String gender, required String residentNumber,
+  required String phone, required String homePhone, required String address,
+  required String bankName, required String bankAccount, required String career, required String notes,
+  required File? frontImage, required File? backImage,
+  required bool needClient, required VoidCallback onClientSuggestion,
+});
+
+typedef _ClientSuggestionFn = void Function(BuildContext screenCtx, {
+  required WorkforceProvider provider,
+  required String clientName, required String address, required String contactPerson,
+  required String email, required String phone, required String officePhone, required String notes,
+});
+
 class AttendanceDialog extends StatefulWidget {
   final Attendance? attendance;
-  const AttendanceDialog({super.key, this.attendance});
-  @override
-  State<AttendanceDialog> createState() => _AttendanceDialogState();
+  final BuildContext screenContext;           // AttendanceScreen의 context
+  final _WorkerSuggestionFn onWorkerSuggestion;
+  final _ClientSuggestionFn onClientSuggestion;
+
+  const AttendanceDialog({
+    super.key,
+    this.attendance,
+    required this.screenContext,
+    required this.onWorkerSuggestion,
+    required this.onClientSuggestion,
+  });
+
+  @override State<AttendanceDialog> createState() => _AttendanceDialogState();
 }
 
 class _AttendanceDialogState extends State<AttendanceDialog> {
@@ -510,15 +503,16 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   final _workerIdNotifier = ValueNotifier<String?>(null);
   final _clientIdNotifier = ValueNotifier<String?>(null);
 
+  // 성별: ValueNotifier → setState 없이 UI 갱신 → TextFormField rebuild 없음 → 커서 안 튐
+  final _genderNotifier = ValueNotifier<String>('');
+
   late TextEditingController _workerNameCtrl, _workerResidentCtrl, _workerPhoneCtrl,
       _workerHomePhoneCtrl, _workerAddressCtrl, _workerBankNameCtrl,
       _workerBankAccountCtrl, _workerCareerCtrl;
-  String _workerGender = '';
-
   late TextEditingController _clientNameCtrl, _clientAddressCtrl, _clientContactCtrl,
       _clientEmailCtrl, _clientPhoneCtrl, _clientOfficePhoneCtrl, _clientNotesCtrl;
-
   late TextEditingController _wageCtrl, _commissionRateCtrl, _notesCtrl;
+
   late DateTime _selectedDate;
   bool  _isPostpaid = false;
   File? _frontImage, _backImage;
@@ -529,9 +523,9 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   @override
   void initState() {
     super.initState();
-    final att     = widget.attendance;
+    final att = widget.attendance;
     _selectedDate = att?.workDate ?? DateTime.now();
-    _workerGender = att?.workerGender ?? '';
+    _genderNotifier.value = att?.workerGender ?? '';
 
     _workerNameCtrl        = TextEditingController(text: att?.workerName ?? '');
     _workerResidentCtrl    = TextEditingController(text: ResidentNumberFormatter.format(att?.workerResidentNumber ?? ''));
@@ -541,7 +535,6 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _workerBankNameCtrl    = TextEditingController(text: att?.workerBankName ?? '');
     _workerBankAccountCtrl = TextEditingController(text: att?.workerBankAccount ?? '');
     _workerCareerCtrl      = TextEditingController(text: att?.workerCareer ?? '');
-
     _clientNameCtrl        = TextEditingController(text: att?.clientName ?? '');
     _clientAddressCtrl     = TextEditingController(text: att?.clientAddress ?? '');
     _clientContactCtrl     = TextEditingController(text: att?.clientContactPerson ?? '');
@@ -549,36 +542,32 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _clientPhoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(att?.clientPhone ?? ''));
     _clientOfficePhoneCtrl = TextEditingController(text: PhoneInputFormatter.format(att?.clientOfficePhone ?? ''));
     _clientNotesCtrl       = TextEditingController(text: att?.clientNotes ?? '');
-
-    _wageCtrl           = TextEditingController(text: att?.dailyWage != null ? att!.dailyWage.toStringAsFixed(0) : '');
-    _commissionRateCtrl = TextEditingController(text: att?.commissionRate != null ? att!.commissionRate.toStringAsFixed(0) : '10');
-    _notesCtrl          = TextEditingController(text: att?.notes ?? '');
-
+    _wageCtrl              = TextEditingController(text: att?.dailyWage != null ? att!.dailyWage.toStringAsFixed(0) : '');
+    _commissionRateCtrl    = TextEditingController(text: att?.commissionRate != null ? att!.commissionRate.toStringAsFixed(0) : '10');
+    _notesCtrl             = TextEditingController(text: att?.notes ?? '');
     _workerIdNotifier.value = att?.workerId;
     _clientIdNotifier.value = att?.clientId;
     _isPostpaid = att?.isPostpaid ?? false;
-
     if (att?.idPhotoPath != null)     _frontImage = ImageHelper.getFileFromPath(att!.idPhotoPath);
     if (att?.idPhotoBackPath != null) _backImage  = ImageHelper.getFileFromPath(att!.idPhotoBackPath);
   }
 
   @override
   void dispose() {
-    _workerIdNotifier.dispose(); _clientIdNotifier.dispose();
-    _workerNameFocus.dispose();  _clientNameFocus.dispose();
-    for (final c in [
-      _workerNameCtrl, _workerResidentCtrl, _workerPhoneCtrl, _workerHomePhoneCtrl,
+    _workerIdNotifier.dispose(); _clientIdNotifier.dispose(); _genderNotifier.dispose();
+    _workerNameFocus.dispose(); _clientNameFocus.dispose();
+    for (final c in [_workerNameCtrl, _workerResidentCtrl, _workerPhoneCtrl, _workerHomePhoneCtrl,
       _workerAddressCtrl, _workerBankNameCtrl, _workerBankAccountCtrl, _workerCareerCtrl,
-      _clientNameCtrl, _clientAddressCtrl, _clientContactCtrl,
-      _clientEmailCtrl, _clientPhoneCtrl, _clientOfficePhoneCtrl, _clientNotesCtrl,
-      _wageCtrl, _commissionRateCtrl, _notesCtrl,
-    ]) c.dispose();
+      _clientNameCtrl, _clientAddressCtrl, _clientContactCtrl, _clientEmailCtrl,
+      _clientPhoneCtrl, _clientOfficePhoneCtrl, _clientNotesCtrl,
+      _wageCtrl, _commissionRateCtrl, _notesCtrl]) c.dispose();
     super.dispose();
   }
 
   void _onWorkerSelected(Worker w) {
     _workerIdNotifier.value = w.id;
-    setState(() { _workerGender = w.gender; });
+    // setState 대신 ValueNotifier → 이 위젯 전체 rebuild 없음 → 커서 안 튐
+    _genderNotifier.value  = w.gender;
     _workerResidentCtrl.text    = ResidentNumberFormatter.format(w.residentNumber);
     _workerPhoneCtrl.text       = PhoneInputFormatter.format(w.phone);
     _workerHomePhoneCtrl.text   = PhoneInputFormatter.format(w.homePhone);
@@ -600,18 +589,28 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _clientNotesCtrl.text       = c.notes;
   }
 
-  Widget _genderButton(String label, MaterialColor color) {
-    final selected = _workerGender == label;
+  // 성별 버튼: ValueListenableBuilder로 감싸서 성별만 부분 rebuild
+  Widget _genderButtons() => ValueListenableBuilder<String>(
+    valueListenable: _genderNotifier,
+    builder: (_, gender, __) => Row(children: [
+      _genderBtn('남', Colors.blue, gender),
+      const SizedBox(width: 6),
+      _genderBtn('여', Colors.pink, gender),
+    ]),
+  );
+
+  Widget _genderBtn(String label, MaterialColor color, String current) {
+    final sel = current == label;
     return GestureDetector(
-      onTap: () => setState(() => _workerGender = selected ? '' : label),
+      onTap: () => _genderNotifier.value = sel ? '' : label,
       child: AnimatedContainer(duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? color.shade100 : Colors.grey.shade100,
+          color: sel ? color.shade100 : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? color.shade400 : Colors.grey.shade300, width: 1.5)),
+          border: Border.all(color: sel ? color.shade400 : Colors.grey.shade300, width: 1.5)),
         child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-            color: selected ? color.shade700 : Colors.grey.shade500))));
+            color: sel ? color.shade700 : Colors.grey.shade500))));
   }
 
   Widget _buildImagePicker(bool isFront) {
@@ -626,12 +625,10 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
       },
       child: Container(height: 80,
         decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(4)),
-        child: file == null
-            ? const Center(child: Icon(Icons.camera_alt, color: Colors.grey))
-            : Image.file(file, fit: BoxFit.cover))));
+        child: file == null ? const Center(child: Icon(Icons.camera_alt, color: Colors.grey)) : Image.file(file, fit: BoxFit.cover))));
   }
 
-  String? _validateNumber(String? v, String fn) {
+  String? _validateNum(String? v, String fn) {
     if (v == null || v.trim().isEmpty) return '$fn을 입력하세요';
     final n = double.tryParse(v.trim());
     if (n == null) return '숫자만 입력 가능합니다';
@@ -642,6 +639,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     final provider         = context.read<WorkforceProvider>();
+    final gender           = _genderNotifier.value;
     final cleanResident    = ResidentNumberFormatter.strip(_workerResidentCtrl.text);
     final cleanPhone       = _workerPhoneCtrl.text.replaceAll('-', '').trim();
     final cleanHomePhone   = _workerHomePhoneCtrl.text.replaceAll('-', '').trim();
@@ -659,14 +657,13 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     void doSave() {
       if (widget.attendance == null) {
         provider.addAttendance(
-          workerId: wId, workerName: _workerNameCtrl.text.trim(), workerGender: _workerGender,
+          workerId: wId, workerName: _workerNameCtrl.text.trim(), workerGender: gender,
           workerResidentNumber: cleanResident, workerPhone: cleanPhone,
           workerHomePhone: cleanHomePhone, workerAddress: _workerAddressCtrl.text.trim(),
           workerBankName: _workerBankNameCtrl.text.trim(), workerBankAccount: _workerBankAccountCtrl.text.trim(),
           workerCareer: _workerCareerCtrl.text.trim(),
           clientId: cId, clientName: _clientNameCtrl.text.trim(),
-          clientAddress: _clientAddressCtrl.text.trim(),
-          clientContactPerson: _clientContactCtrl.text.trim(),
+          clientAddress: _clientAddressCtrl.text.trim(), clientContactPerson: _clientContactCtrl.text.trim(),
           clientPhone: cleanClientPhone, clientOfficePhone: cleanOfficePhone,
           clientEmail: _clientEmailCtrl.text.trim(), clientNotes: _clientNotesCtrl.text.trim(),
           workDate: _selectedDate, dailyWage: wage, commissionRate: rate,
@@ -675,40 +672,62 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
         );
       } else {
         provider.updateAttendance(id: widget.attendance!.id, data: {
-          'worker_id': wId, 'worker_name': _workerNameCtrl.text.trim(),
-          'worker_gender': _workerGender, 'worker_resident_number': cleanResident,
-          'worker_phone': cleanPhone, 'worker_home_phone': cleanHomePhone,
-          'worker_address': _workerAddressCtrl.text.trim(),
-          'worker_bank_name': _workerBankNameCtrl.text.trim(),
-          'worker_bank_account': _workerBankAccountCtrl.text.trim(),
+          'worker_id': wId, 'worker_name': _workerNameCtrl.text.trim(), 'worker_gender': gender,
+          'worker_resident_number': cleanResident, 'worker_phone': cleanPhone,
+          'worker_home_phone': cleanHomePhone, 'worker_address': _workerAddressCtrl.text.trim(),
+          'worker_bank_name': _workerBankNameCtrl.text.trim(), 'worker_bank_account': _workerBankAccountCtrl.text.trim(),
           'worker_career': _workerCareerCtrl.text.trim(),
           'client_id': cId, 'client_name': _clientNameCtrl.text.trim(),
-          'client_address': _clientAddressCtrl.text.trim(),
-          'client_contact_person': _clientContactCtrl.text.trim(),
+          'client_address': _clientAddressCtrl.text.trim(), 'client_contact_person': _clientContactCtrl.text.trim(),
           'client_phone': cleanClientPhone, 'client_office_phone': cleanOfficePhone,
           'client_email': _clientEmailCtrl.text.trim(), 'client_notes': _clientNotesCtrl.text.trim(),
           'work_date': _selectedDate, 'daily_wage': wage, 'commission_rate': rate,
           'is_postpaid': _isPostpaid, 'notes': _notesCtrl.text.trim(),
         }, newFrontImage: _frontImage, newBackImage: _backImage);
       }
+
+      // 다이얼로그를 닫고 — 이후 모든 UI는 screenContext에서 처리
       Navigator.pop(context);
 
-      // 신규 등록일 때만 제안
       if (widget.attendance == null) {
         final needWorker = wId == null && provider.suggestWorkerRegistration;
         final needClient = cId == null && provider.suggestClientRegistration;
+
+        // 로컬 변수로 값 캡처 (context 닫힌 뒤 컨트롤러 접근 불가)
+        final wName      = _workerNameCtrl.text.trim();
+        final wResident  = cleanResident;
+        final wHomePhone = cleanHomePhone;
+        final wAddress   = _workerAddressCtrl.text.trim();
+        final wBankName  = _workerBankNameCtrl.text.trim();
+        final wBankAcc   = _workerBankAccountCtrl.text.trim();
+        final wCareer    = _workerCareerCtrl.text.trim();
+        final wNotes     = _notesCtrl.text.trim();
+        final cName      = _clientNameCtrl.text.trim();
+        final cAddress   = _clientAddressCtrl.text.trim();
+        final cContact   = _clientContactCtrl.text.trim();
+        final cEmail     = _clientEmailCtrl.text.trim();
+        final cNotes     = _clientNotesCtrl.text.trim();
+        final front      = _frontImage;
+        final back       = _backImage;
+
+        void triggerClientSuggestion() {
+          widget.onClientSuggestion(widget.screenContext,
+            provider: provider, clientName: cName, address: cAddress,
+            contactPerson: cContact, email: cEmail,
+            phone: cleanClientPhone, officePhone: cleanOfficePhone, notes: cNotes,
+          );
+        }
+
         if (needWorker) {
-          // onDone을 직접 넘기면 pop 직후 context가 아직 정리 중일 수 있음
-          // → addPostFrameCallback으로 다음 프레임에 호출해 안전하게 처리
-          _askRegisterWorker(
-            onDone: needClient
-                ? () => WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (context.mounted) _askRegisterClient();
-                  })
-                : null,
+          widget.onWorkerSuggestion(widget.screenContext,
+            provider: provider, workerName: wName, gender: gender,
+            residentNumber: wResident, phone: cleanPhone, homePhone: wHomePhone,
+            address: wAddress, bankName: wBankName, bankAccount: wBankAcc,
+            career: wCareer, notes: wNotes, frontImage: front, backImage: back,
+            needClient: needClient, onClientSuggestion: triggerClientSuggestion,
           );
         } else if (needClient) {
-          _askRegisterClient();
+          triggerClientSuggestion();
         }
       }
     }
@@ -727,97 +746,6 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     } else { doSave(); }
   }
 
-  // ── 근로자 등록 제안 ──────────────────────────────────────
-  // onDone: 다이얼로그 닫힌 후 실행할 콜백 (등록 or 나중에 어느 쪽이든)
-  void _askRegisterWorker({VoidCallback? onDone}) {
-    final provider   = context.read<WorkforceProvider>();
-    final cleanPhone = _workerPhoneCtrl.text.replaceAll('-', '').trim();
-    if (provider.workers.any((w) => w.phone.replaceAll('-','').trim() == cleanPhone)) {
-      // 이미 등록된 근로자 → 바로 다음 단계
-      if (onDone != null) WidgetsBinding.instance.addPostFrameCallback((_) { if (context.mounted) onDone(); });
-      return;
-    }
-
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: const Row(children: [Icon(Icons.person_add, color: Colors.blue), SizedBox(width: 8), Text('근로자 등록')]),
-      content: Text('${_workerNameCtrl.text.trim()} 님을 근로자 목록에 등록하시겠습니까?\n\n등록하면 다음 출근 등록 시 자동완성에서 바로 선택할 수 있습니다.'),
-      actions: [
-        // 나중에: 다이얼로그 닫고 → 다음 프레임에 onDone 호출
-        TextButton(
-          onPressed: () {
-            Navigator.pop(ctx);
-            if (onDone != null) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (context.mounted) onDone();
-              });
-            }
-          },
-          child: const Text('나중에'),
-        ),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.person_add, size: 16), label: const Text('등록'),
-          onPressed: () {
-            final cleanResident  = ResidentNumberFormatter.strip(_workerResidentCtrl.text);
-            final cp             = _workerPhoneCtrl.text.replaceAll('-','').trim();
-            final cleanHomePhone = _workerHomePhoneCtrl.text.replaceAll('-','').trim();
-            provider.addWorker(
-              name: _workerNameCtrl.text.trim(), gender: _workerGender,
-              residentNumber: cleanResident, address: _workerAddressCtrl.text.trim(),
-              phone: cp, homePhone: cleanHomePhone,
-              bankName: _workerBankNameCtrl.text.trim(), bankAccount: _workerBankAccountCtrl.text.trim(),
-              career: _workerCareerCtrl.text.trim(), notes: _notesCtrl.text.trim(),
-              idPhotoFront: _frontImage, idPhotoBack: _backImage,
-            );
-            Navigator.pop(ctx);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${_workerNameCtrl.text.trim()} 님이 근로자 목록에 등록되었습니다.')));
-            }
-            // 등록 완료 → 다음 프레임에 onDone 호출
-            if (onDone != null) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (context.mounted) onDone();
-              });
-            }
-          }),
-      ],
-    ));
-  }
-
-  // ── 거래처 등록 제안 ──────────────────────────────────────
-  void _askRegisterClient() {
-    if (!mounted) return;
-    final provider   = context.read<WorkforceProvider>();
-    final clientName = _clientNameCtrl.text.trim();
-    if (clientName.isEmpty) return;
-    if (provider.clients.any((c) => c.name == clientName)) return;
-
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: const Row(children: [Icon(Icons.business, color: Colors.blue), SizedBox(width: 8), Text('거래처 등록')]),
-      content: Text('"$clientName"을 거래처 목록에 등록하시겠습니까?\n\n등록하면 다음 출근 등록 시 자동완성에서 바로 선택할 수 있습니다.'),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('나중에')),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.business, size: 16), label: const Text('등록'),
-          onPressed: () {
-            provider.addClient(Client(
-              name: clientName, address: _clientAddressCtrl.text.trim(),
-              contactPerson: _clientContactCtrl.text.trim(),
-              email: _clientEmailCtrl.text.trim(),
-              phone: _clientPhoneCtrl.text.replaceAll('-','').trim(),
-              officePhone: _clientOfficePhoneCtrl.text.replaceAll('-','').trim(),
-              notes: _clientNotesCtrl.text.trim(), createdAt: DateTime.now(),
-            ));
-            Navigator.pop(ctx);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('"$clientName"이 거래처 목록에 등록되었습니다.')));
-            }
-          }),
-      ],
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
     final workers = context.read<WorkforceProvider>().workers;
@@ -828,18 +756,15 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
       content: SizedBox(width: 560, child: Form(key: _formKey,
         child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-          // 날짜
           ListTile(
             title: Text('날짜: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}'),
             trailing: const Icon(Icons.calendar_today),
             onTap: () async {
-              final picked = await showDatePicker(context: context, initialDate: _selectedDate,
-                  firstDate: DateTime(2020), lastDate: DateTime(2030));
+              final picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
               if (picked != null) setState(() => _selectedDate = picked);
             }),
           const Divider(),
 
-          // ── 근로자 정보 ────────────────────────────────────
           const Align(alignment: Alignment.centerLeft,
             child: Text('근로자 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
           const SizedBox(height: 8),
@@ -864,7 +789,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('성별', style: TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 4),
-              Row(children: [_genderButton('남', Colors.blue), const SizedBox(width: 6), _genderButton('여', Colors.pink)]),
+              _genderButtons(), // ValueListenableBuilder로 분리 → setState 불필요
             ]),
           ]),
           const SizedBox(height: 6),
@@ -887,7 +812,6 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           TextFormField(controller: _workerCareerCtrl, decoration: const InputDecoration(labelText: '경력사항'), maxLines: 2),
           const SizedBox(height: 12), const Divider(),
 
-          // ── 거래처 정보 ────────────────────────────────────
           const Align(alignment: Alignment.centerLeft,
             child: Text('거래처 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
           const SizedBox(height: 8),
@@ -919,17 +843,14 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           ]),
           Row(children: [
             Expanded(child: TextFormField(controller: _clientPhoneCtrl,
-                decoration: const InputDecoration(labelText: '연락처', hintText: '010-0000-0000'),
-                inputFormatters: [PhoneInputFormatter()])),
+                decoration: const InputDecoration(labelText: '연락처', hintText: '010-0000-0000'), inputFormatters: [PhoneInputFormatter()])),
             const SizedBox(width: 10),
             Expanded(child: TextFormField(controller: _clientOfficePhoneCtrl,
-                decoration: const InputDecoration(labelText: '회사번호', hintText: '02-0000-0000 (선택)'),
-                inputFormatters: [PhoneInputFormatter()])),
+                decoration: const InputDecoration(labelText: '회사번호', hintText: '02-0000-0000 (선택)'), inputFormatters: [PhoneInputFormatter()])),
           ]),
           TextFormField(controller: _clientNotesCtrl, decoration: const InputDecoration(labelText: '비고'), maxLines: 2),
           const SizedBox(height: 12), const Divider(),
 
-          // ── 근무 정보 ──────────────────────────────────────
           const Align(alignment: Alignment.centerLeft,
             child: Text('근무 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
           const SizedBox(height: 8),
@@ -938,12 +859,12 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
             Expanded(child: TextFormField(controller: _wageCtrl, decoration: const InputDecoration(labelText: '일당 *'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*'))],
-                validator: (v) => _validateNumber(v, '일당'))),
+                validator: (v) => _validateNum(v, '일당'))),
             const SizedBox(width: 16),
             Expanded(child: TextFormField(controller: _commissionRateCtrl, decoration: const InputDecoration(labelText: '수수료율(%) *'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*'))],
-                validator: (v) => _validateNumber(v, '수수료율'))),
+                validator: (v) => _validateNum(v, '수수료율'))),
           ]),
           const SizedBox(height: 12),
           Row(children: [
