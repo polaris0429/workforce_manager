@@ -37,9 +37,8 @@ class WorkforceProvider with ChangeNotifier {
   Set<String> _pendingPaths = {};
   Set<String> get pendingPaths => Set.unmodifiable(_pendingPaths);
 
-  // ── 등록 제안 설정 ────────────────────────────────────────
-  bool _suggestWorkerRegistration  = true;
-  bool _suggestClientRegistration  = true;
+  bool _suggestWorkerRegistration = true;
+  bool _suggestClientRegistration = true;
   bool get suggestWorkerRegistration => _suggestWorkerRegistration;
   bool get suggestClientRegistration => _suggestClientRegistration;
 
@@ -64,12 +63,9 @@ class WorkforceProvider with ChangeNotifier {
     super.dispose();
   }
 
-  // ── 초기화 ────────────────────────────────────────────────
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
-    _backupPaths = (prefs.getStringList('backupPaths') ?? [])
-        .where((s) => s.isNotEmpty).toList();
-    // 등록 제안 설정 로드 (기본값 true)
+    _backupPaths = (prefs.getStringList('backupPaths') ?? []).where((s) => s.isNotEmpty).toList();
     _suggestWorkerRegistration = prefs.getBool(_keyWorkerSuggest) ?? true;
     _suggestClientRegistration = prefs.getBool(_keyClientSuggest) ?? true;
     await _loadData();
@@ -77,32 +73,28 @@ class WorkforceProvider with ChangeNotifier {
     await _refreshPending();
   }
 
-  // ── 등록 제안 설정 변경 ───────────────────────────────────
-  Future<void> setSuggestWorkerRegistration(bool value) async {
-    _suggestWorkerRegistration = value;
+  Future<void> setSuggestWorkerRegistration(bool v) async {
+    _suggestWorkerRegistration = v;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyWorkerSuggest, value);
+    await prefs.setBool(_keyWorkerSuggest, v);
     notifyListeners();
   }
 
-  Future<void> setSuggestClientRegistration(bool value) async {
-    _suggestClientRegistration = value;
+  Future<void> setSuggestClientRegistration(bool v) async {
+    _suggestClientRegistration = v;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyClientSuggest, value);
+    await prefs.setBool(_keyClientSuggest, v);
     notifyListeners();
   }
 
   Future<void> _loadData() async {
-    _isLoading = true;
-    notifyListeners();
+    _isLoading = true; notifyListeners();
     _workers        = await _dbSvc.getAllWorkers();
     _clients        = await _dbSvc.getAllClients();
     _attendanceList = await _dbSvc.getAllAttendance();
-    _isLoading = false;
-    notifyListeners();
+    _isLoading = false; notifyListeners();
   }
 
-  // ── 디바운스 백업 ─────────────────────────────────────────
   void _scheduleBackup() {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(_debounce, () {
@@ -110,29 +102,18 @@ class WorkforceProvider with ChangeNotifier {
     });
   }
 
-  Future<void> _refreshPending() async {
-    _pendingPaths = await _backupSvc.getPendingPaths();
-    notifyListeners();
-  }
+  Future<void> _refreshPending() async { _pendingPaths = await _backupSvc.getPendingPaths(); notifyListeners(); }
 
   void _startRetryTimer() {
     _retryTimer?.cancel();
-    _retryTimer = Timer.periodic(_retryInterval, (_) {
-      unawaited(_backupSvc.retryPending().then((_) => _refreshPending()));
-    });
+    _retryTimer = Timer.periodic(_retryInterval, (_) { unawaited(_backupSvc.retryPending().then((_) => _refreshPending())); });
   }
 
-  Future<void> retryBackupNow() async {
-    await _backupSvc.retryPending();
-    await _refreshPending();
-  }
+  Future<void> retryBackupNow() async { await _backupSvc.retryPending(); await _refreshPending(); }
 
-  // ── 백업 경로 관리 ────────────────────────────────────────
   Future<void> addBackupPath(String path) async {
     if (path.isEmpty || _backupPaths.contains(path)) return;
-    _backupPaths.add(path);
-    await _persistPaths();
-    notifyListeners();
+    _backupPaths.add(path); await _persistPaths(); notifyListeners();
     unawaited(_backupSvc.backupAll(backupPaths: [path]).then((_) => _refreshPending()));
   }
 
@@ -145,8 +126,7 @@ class WorkforceProvider with ChangeNotifier {
       await prefs.setStringList('backup_pending_paths', pending.toList());
       _pendingPaths = pending;
     }
-    await _persistPaths();
-    notifyListeners();
+    await _persistPaths(); notifyListeners();
   }
 
   Future<void> _persistPaths() async {
@@ -159,27 +139,30 @@ class WorkforceProvider with ChangeNotifier {
     await _backupSvc.backupImage(localImagePath: localPath, backupPaths: _backupPaths);
   }
 
-  String _generateId() {
-    final now = DateTime.now();
-    return '${now.millisecondsSinceEpoch}_${now.microsecond}';
-  }
+  // epoch 기준 마이크로초 → 완전 고유값 (microsecond 0~999 범위 중복 위험 제거)
+  String _generateId() => DateTime.now().microsecondsSinceEpoch.toString();
 
   // =========================================================
-  // CRUD
+  // 근로자 CRUD
   // =========================================================
-
   Future<void> addWorker({
-    required String name, String gender = '', String residentNumber = '',
-    required String phone, String address = '', String bankName = '',
-    String bankAccount = '', String career = '', String notes = '',
+    required String name,
+    String gender = '', String residentNumber = '', String address = '',
+    required String phone,
+    String homePhone = '',
+    String bankName = '', String bankAccount = '',
+    String career = '', String notes = '',
     File? idPhotoFront, File? idPhotoBack,
   }) async {
     String? fp, bp;
     if (idPhotoFront != null) { fp = await ImageHelper.saveImageLocally(idPhotoFront, workerName: name); await _backupImage(fp); }
     if (idPhotoBack  != null) { bp = await ImageHelper.saveImageLocally(idPhotoBack,  workerName: name); await _backupImage(bp); }
-    final w = Worker(id: _generateId(), name: name, gender: gender, residentNumber: residentNumber,
-        phone: phone, address: address, bankName: bankName, bankAccount: bankAccount,
-        career: career, notes: notes, idPhotoPath: fp, idPhotoBackPath: bp, createdAt: DateTime.now());
+    final w = Worker(
+      id: _generateId(), name: name, gender: gender, residentNumber: residentNumber,
+      address: address, phone: phone, homePhone: homePhone,
+      bankName: bankName, bankAccount: bankAccount, career: career,
+      notes: notes, idPhotoPath: fp, idPhotoBackPath: bp, createdAt: DateTime.now(),
+    );
     await _dbSvc.insertWorker(w);
     _workers = await _dbSvc.getAllWorkers();
     notifyListeners(); _scheduleBackup();
@@ -193,13 +176,24 @@ class WorkforceProvider with ChangeNotifier {
     final wName = (data['name'] as String?)?.isNotEmpty == true ? data['name'] as String : old.name;
     if (newFrontImage != null) { final path = await ImageHelper.saveImageLocally(newFrontImage, workerName: wName); data['id_photo_path']      = path; await _backupImage(path); }
     if (newBackImage  != null) { final path = await ImageHelper.saveImageLocally(newBackImage,  workerName: wName); data['id_photo_back_path'] = path; await _backupImage(path); }
-    final updated = Worker(id: old.id, name: data['name'] ?? old.name, gender: data['gender'] ?? old.gender,
-        residentNumber: data['resident_number'] ?? old.residentNumber, phone: data['phone'] ?? old.phone,
-        address: data['address'] ?? old.address, bankName: data['bank_name'] ?? old.bankName,
-        bankAccount: data['bank_account'] ?? old.bankAccount, career: data['career'] ?? old.career,
-        notes: data['notes'] ?? old.notes, idPhotoPath: data['id_photo_path'] ?? old.idPhotoPath,
-        idPhotoBackPath: data['id_photo_back_path'] ?? old.idPhotoBackPath,
-        isBlacklisted: old.isBlacklisted, blacklistReason: old.blacklistReason, createdAt: old.createdAt);
+    final updated = Worker(
+      id: old.id,
+      name:            data['name']               ?? old.name,
+      gender:          data['gender']             ?? old.gender,
+      residentNumber:  data['resident_number']    ?? old.residentNumber,
+      address:         data['address']            ?? old.address,
+      phone:           data['phone']              ?? old.phone,
+      homePhone:       data['home_phone']         ?? old.homePhone,
+      bankName:        data['bank_name']          ?? old.bankName,
+      bankAccount:     data['bank_account']       ?? old.bankAccount,
+      career:          data['career']             ?? old.career,
+      notes:           data['notes']              ?? old.notes,
+      idPhotoPath:     data['id_photo_path']      ?? old.idPhotoPath,
+      idPhotoBackPath: data['id_photo_back_path'] ?? old.idPhotoBackPath,
+      isBlacklisted:   old.isBlacklisted,
+      blacklistReason: old.blacklistReason,
+      createdAt:       old.createdAt,
+    );
     await _dbSvc.updateWorker(updated);
     _workers = await _dbSvc.getAllWorkers();
     notifyListeners(); _scheduleBackup();
@@ -215,15 +209,21 @@ class WorkforceProvider with ChangeNotifier {
     final idx = _workers.indexWhere((w) => w.id == id);
     if (idx == -1) return;
     final old = _workers[idx];
-    final updated = Worker(id: old.id, name: old.name, gender: old.gender, residentNumber: old.residentNumber,
-        phone: old.phone, address: old.address, bankName: old.bankName, bankAccount: old.bankAccount,
-        career: old.career, notes: old.notes, idPhotoPath: old.idPhotoPath, idPhotoBackPath: old.idPhotoBackPath,
-        isBlacklisted: !currentStatus, blacklistReason: !currentStatus ? reason : null, createdAt: old.createdAt);
+    final updated = Worker(
+      id: old.id, name: old.name, gender: old.gender, residentNumber: old.residentNumber,
+      address: old.address, phone: old.phone, homePhone: old.homePhone,
+      bankName: old.bankName, bankAccount: old.bankAccount, career: old.career, notes: old.notes,
+      idPhotoPath: old.idPhotoPath, idPhotoBackPath: old.idPhotoBackPath,
+      isBlacklisted: !currentStatus, blacklistReason: !currentStatus ? reason : null, createdAt: old.createdAt,
+    );
     await _dbSvc.updateWorker(updated);
     _workers[idx] = updated;
     notifyListeners(); _scheduleBackup();
   }
 
+  // =========================================================
+  // 거래처 CRUD
+  // =========================================================
   Future<void> addClient(Client client) async {
     client.id = _generateId();
     await _dbSvc.insertClient(client);
@@ -235,10 +235,17 @@ class WorkforceProvider with ChangeNotifier {
     final idx = _clients.indexWhere((c) => c.id == id);
     if (idx == -1) return;
     final old = _clients[idx];
-    final updated = Client(id: old.id, name: data['name'] ?? old.name,
-        address: data['address'] ?? old.address, contactPerson: data['contact_person'] ?? old.contactPerson,
-        phone: data['phone'] ?? old.phone, email: data['email'] ?? old.email,
-        notes: data['notes'] ?? old.notes, createdAt: old.createdAt);
+    final updated = Client(
+      id: old.id,
+      name:          data['name']           ?? old.name,
+      address:       data['address']        ?? old.address,
+      contactPerson: data['contact_person'] ?? old.contactPerson,
+      phone:         data['phone']          ?? old.phone,
+      officePhone:   data['office_phone']   ?? old.officePhone,
+      email:         data['email']          ?? old.email,
+      notes:         data['notes']          ?? old.notes,
+      createdAt:     old.createdAt,
+    );
     await _dbSvc.updateClient(updated);
     _clients[idx] = updated;
     notifyListeners(); _scheduleBackup();
@@ -250,12 +257,22 @@ class WorkforceProvider with ChangeNotifier {
     notifyListeners(); _scheduleBackup();
   }
 
+  // =========================================================
+  // 출근 CRUD
+  // =========================================================
   Future<void> addAttendance({
-    String? workerId, required String workerName, String workerGender = '',
-    String workerResidentNumber = '', required String workerPhone,
-    String workerAddress = '', String workerBankName = '', String workerBankAccount = '',
-    String workerCareer = '', String? clientId, required String clientName,
-    required String clientAddress, required DateTime workDate,
+    String? workerId,
+    required String workerName,
+    String workerGender = '', String workerResidentNumber = '',
+    required String workerPhone,
+    String workerHomePhone = '', String workerAddress = '',
+    String workerBankName = '', String workerBankAccount = '', String workerCareer = '',
+    String? clientId,
+    required String clientName,
+    String clientAddress = '', String clientContactPerson = '',
+    String clientPhone = '', String clientOfficePhone = '',
+    String clientEmail = '', String clientNotes = '',
+    required DateTime workDate,
     required double dailyWage, required double commissionRate, required bool isPostpaid,
     String notes = '', File? idPhotoFront, File? idPhotoBack,
   }) async {
@@ -263,15 +280,21 @@ class WorkforceProvider with ChangeNotifier {
     if (idPhotoFront != null) { fp = await ImageHelper.saveImageLocally(idPhotoFront, workerName: workerName); await _backupImage(fp); }
     if (idPhotoBack  != null) { bp = await ImageHelper.saveImageLocally(idPhotoBack,  workerName: workerName); await _backupImage(bp); }
     final comm = dailyWage * (commissionRate / 100);
-    final att  = Attendance(id: _generateId(), workerId: workerId, workerName: workerName,
-        workerGender: workerGender, workerResidentNumber: workerResidentNumber,
-        workerPhone: workerPhone, workerAddress: workerAddress, workerBankName: workerBankName,
-        workerBankAccount: workerBankAccount, workerCareer: workerCareer,
-        clientId: clientId, clientName: clientName, clientAddress: clientAddress,
-        workDate: workDate, dailyWage: dailyWage, commissionRate: commissionRate,
-        commission: comm, netWage: isPostpaid ? dailyWage : (dailyWage - comm),
-        notes: notes, idPhotoPath: fp, idPhotoBackPath: bp,
-        isPostpaid: isPostpaid, isSettled: !isPostpaid, createdAt: DateTime.now());
+    final att  = Attendance(
+      id: _generateId(), workerId: workerId,
+      workerName: workerName, workerGender: workerGender,
+      workerResidentNumber: workerResidentNumber, workerPhone: workerPhone,
+      workerHomePhone: workerHomePhone, workerAddress: workerAddress,
+      workerBankName: workerBankName, workerBankAccount: workerBankAccount, workerCareer: workerCareer,
+      clientId: clientId, clientName: clientName,
+      clientAddress: clientAddress, clientContactPerson: clientContactPerson,
+      clientPhone: clientPhone, clientOfficePhone: clientOfficePhone,
+      clientEmail: clientEmail, clientNotes: clientNotes,
+      workDate: workDate, dailyWage: dailyWage, commissionRate: commissionRate,
+      commission: comm, netWage: isPostpaid ? dailyWage : (dailyWage - comm),
+      notes: notes, idPhotoPath: fp, idPhotoBackPath: bp,
+      isPostpaid: isPostpaid, isSettled: !isPostpaid, createdAt: DateTime.now(),
+    );
     await _dbSvc.insertAttendance(att);
     _attendanceList.insert(0, att);
     notifyListeners(); _scheduleBackup();
@@ -294,40 +317,47 @@ class WorkforceProvider with ChangeNotifier {
       data['commission'] = cm; data['net_wage'] = pp ? dw : (dw - cm);
       if (!pp) data['is_settled'] = true;
     }
-    final updated = Attendance(id: old.id,
-        workerId:             data['worker_id']              ?? old.workerId,
-        workerName:           data['worker_name']            ?? old.workerName,
-        workerGender:         data['worker_gender']          ?? old.workerGender,
-        workerResidentNumber: data['worker_resident_number'] ?? old.workerResidentNumber,
-        workerPhone:          data['worker_phone']           ?? old.workerPhone,
-        workerAddress:        data['worker_address']         ?? old.workerAddress,
-        workerBankName:       data['worker_bank_name']       ?? old.workerBankName,
-        workerBankAccount:    data['worker_bank_account']    ?? old.workerBankAccount,
-        workerCareer:         data['worker_career']          ?? old.workerCareer,
-        clientId:             data['client_id']              ?? old.clientId,
-        clientName:           data['client_name']            ?? old.clientName,
-        clientAddress:        data['client_address']         ?? old.clientAddress,
-        workDate:             data['work_date']               ?? old.workDate,
-        dailyWage:            _toDouble(data['daily_wage'])   ?? old.dailyWage,
-        commissionRate:       _toDouble(data['commission_rate']) ?? old.commissionRate,
-        commission:           _toDouble(data['commission'])   ?? old.commission,
-        netWage:              _toDouble(data['net_wage'])     ?? old.netWage,
-        notes:                data['notes']                   ?? old.notes,
-        idPhotoPath:          data['id_photo_path']           ?? old.idPhotoPath,
-        idPhotoBackPath:      data['id_photo_back_path']      ?? old.idPhotoBackPath,
-        isPostpaid:           data['is_postpaid']             ?? old.isPostpaid,
-        isSettled:            data['is_settled']              ?? old.isSettled,
-        createdAt:            old.createdAt);
+
+    final updated = Attendance(
+      id: old.id,
+      workerId:             data['worker_id']              ?? old.workerId,
+      workerName:           data['worker_name']            ?? old.workerName,
+      workerGender:         data['worker_gender']          ?? old.workerGender,
+      workerResidentNumber: data['worker_resident_number'] ?? old.workerResidentNumber,
+      workerPhone:          data['worker_phone']           ?? old.workerPhone,
+      workerHomePhone:      data['worker_home_phone']      ?? old.workerHomePhone,
+      workerAddress:        data['worker_address']         ?? old.workerAddress,
+      workerBankName:       data['worker_bank_name']       ?? old.workerBankName,
+      workerBankAccount:    data['worker_bank_account']    ?? old.workerBankAccount,
+      workerCareer:         data['worker_career']          ?? old.workerCareer,
+      clientId:             data['client_id']              ?? old.clientId,
+      clientName:           data['client_name']            ?? old.clientName,
+      clientAddress:        data['client_address']         ?? old.clientAddress,
+      clientContactPerson:  data['client_contact_person']  ?? old.clientContactPerson,
+      clientPhone:          data['client_phone']           ?? old.clientPhone,
+      clientOfficePhone:    data['client_office_phone']    ?? old.clientOfficePhone,
+      clientEmail:          data['client_email']           ?? old.clientEmail,
+      clientNotes:          data['client_notes']           ?? old.clientNotes,
+      workDate:             data['work_date']               ?? old.workDate,
+      dailyWage:            _toDouble(data['daily_wage'])   ?? old.dailyWage,
+      commissionRate:       _toDouble(data['commission_rate']) ?? old.commissionRate,
+      commission:           _toDouble(data['commission'])   ?? old.commission,
+      netWage:              _toDouble(data['net_wage'])     ?? old.netWage,
+      notes:                data['notes']                   ?? old.notes,
+      idPhotoPath:          data['id_photo_path']           ?? old.idPhotoPath,
+      idPhotoBackPath:      data['id_photo_back_path']      ?? old.idPhotoBackPath,
+      isPostpaid:           data['is_postpaid']             ?? old.isPostpaid,
+      isSettled:            data['is_settled']              ?? old.isSettled,
+      createdAt:            old.createdAt,
+    );
     await _dbSvc.updateAttendance(updated);
     _attendanceList[idx] = updated;
     notifyListeners(); _scheduleBackup();
   }
 
   double? _toDouble(dynamic v) {
-    if (v == null)   return null;
-    if (v is double) return v;
-    if (v is int)    return v.toDouble();
-    if (v is String) return double.tryParse(v);
+    if (v == null) return null; if (v is double) return v;
+    if (v is int) return v.toDouble(); if (v is String) return double.tryParse(v);
     return null;
   }
 
@@ -348,12 +378,11 @@ class WorkforceProvider with ChangeNotifier {
   // =========================================================
   List<Attendance> get unpaidCommissions => _attendanceList.where((a) => a.isPostpaid && !a.isSettled).toList();
   double get totalUnpaidAmount => unpaidCommissions.fold(0.0, (s, a) => s + a.commission);
-
   double get todayIncome { final t = DateTime.now(); return _attendanceList.where((a) => _isSameDay(a.workDate, t) && a.isSettled).fold(0.0, (s, a) => s + a.commission); }
   int    get todayWorkersCount { final t = DateTime.now(); return _attendanceList.where((a) => _isSameDay(a.workDate, t)).length; }
-  double get weeklyIncome { final now = DateTime.now(); final s = DateTime(now.year, now.month, now.day - (now.weekday - 1)); return _attendanceList.where((a) => !a.workDate.isBefore(s) && a.isSettled).fold(0.0, (x, a) => x + a.commission); }
-  double get monthlyIncome { final now = DateTime.now(); return _attendanceList.where((a) => a.workDate.year == now.year && a.workDate.month == now.month && a.isSettled).fold(0.0, (s, a) => s + a.commission); }
-  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  double get weeklyIncome { final now = DateTime.now(); final s = DateTime(now.year, now.month, now.day-(now.weekday-1)); return _attendanceList.where((a) => !a.workDate.isBefore(s) && a.isSettled).fold(0.0, (x, a) => x+a.commission); }
+  double get monthlyIncome { final now = DateTime.now(); return _attendanceList.where((a) => a.workDate.year==now.year && a.workDate.month==now.month && a.isSettled).fold(0.0, (s, a) => s+a.commission); }
+  bool _isSameDay(DateTime a, DateTime b) => a.year==b.year && a.month==b.month && a.day==b.day;
 
   // =========================================================
   // 엑셀 내보내기
@@ -368,7 +397,7 @@ class WorkforceProvider with ChangeNotifier {
     final ts = CellStyle(backgroundColorHex: ExcelColor.fromHexString('#92D050'), fontColorHex: ExcelColor.fromHexString('#000000'), bold: true);
     final total = records.fold(0.0, (s, a) => s + a.commission);
     for (int i = 0; i < records.length; i++) {
-      final att = records[i]; final row = i + 1;
+      final att = records[i]; final row = i+1;
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue(att.workDate.toIso8601String().split('T')[0]);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(att.workerName);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = TextCellValue(att.clientName);
@@ -384,17 +413,17 @@ class WorkforceProvider with ChangeNotifier {
     final now = DateTime.now();
     switch (period) {
       case ExcelPeriodType.today:  return _attendanceList.where((a) => _isSameDay(a.workDate, now)).toList();
-      case ExcelPeriodType.week:   final s = DateTime(now.year, now.month, now.day - (now.weekday - 1)); return _attendanceList.where((a) => !a.workDate.isBefore(s)).toList();
-      case ExcelPeriodType.month:  return _attendanceList.where((a) => a.workDate.year == now.year && a.workDate.month == now.month).toList();
+      case ExcelPeriodType.week:   final s = DateTime(now.year, now.month, now.day-(now.weekday-1)); return _attendanceList.where((a) => !a.workDate.isBefore(s)).toList();
+      case ExcelPeriodType.month:  return _attendanceList.where((a) => a.workDate.year==now.year && a.workDate.month==now.month).toList();
       case ExcelPeriodType.all:    return List.from(_attendanceList);
     }
   }
 
   String _periodLabel(ExcelPeriodType period) {
-    final now = DateTime.now(); String d(int n) => n.toString().padLeft(2, '0');
+    final now = DateTime.now(); String d(int n) => n.toString().padLeft(2,'0');
     switch (period) {
       case ExcelPeriodType.today:  return '일별_${now.year}${d(now.month)}${d(now.day)}';
-      case ExcelPeriodType.week:   final mon = now.subtract(Duration(days: now.weekday - 1)); return '주별_${mon.year}${d(mon.month)}${d(mon.day)}';
+      case ExcelPeriodType.week:   final mon = now.subtract(Duration(days: now.weekday-1)); return '주별_${mon.year}${d(mon.month)}${d(mon.day)}';
       case ExcelPeriodType.month:  return '월별_${now.year}${d(now.month)}';
       case ExcelPeriodType.all:    return '전체_${now.year}${d(now.month)}${d(now.day)}';
     }

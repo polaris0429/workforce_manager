@@ -2,9 +2,10 @@ class Worker {
   String  id;
   String  name;
   String  gender;
-  String  residentNumber;
-  String  phone;
+  String  residentNumber; // 숫자만 저장 (DB)
   String  address;
+  String  phone;          // 휴대폰번호
+  String  homePhone;      // 집전화번호 (선택)
   String  bankName;
   String  bankAccount;
   String  career;
@@ -20,8 +21,9 @@ class Worker {
     required this.name,
     this.gender         = '',
     this.residentNumber = '',
-    required this.phone,
     this.address        = '',
+    required this.phone,
+    this.homePhone      = '',
     this.bankName       = '',
     this.bankAccount    = '',
     this.career         = '',
@@ -39,15 +41,15 @@ class Worker {
       name:            data['name']             ?? '',
       gender:          data['gender']           ?? '',
       residentNumber:  data['resident_number']  ?? '',
-      phone:           data['phone']            ?? '',
       address:         data['address']          ?? '',
+      phone:           data['phone']            ?? '',
+      homePhone:       data['home_phone']       ?? '',
       bankName:        data['bank_name']        ?? '',
       bankAccount:     data['bank_account']     ?? '',
       career:          data['career']           ?? '',
       notes:           data['notes']            ?? '',
       idPhotoPath:     data['id_photo_path'],
       idPhotoBackPath: data['id_photo_back_path'],
-      // SQLite: INTEGER 0/1 → bool
       isBlacklisted:   _parseBool(data['is_blacklisted']),
       blacklistReason: data['blacklist_reason'],
       createdAt:       _parseDate(data['created_at']),
@@ -56,30 +58,30 @@ class Worker {
 
   Map<String, dynamic> toMap() {
     return {
-      'id':                id,
-      'name':              name,
-      'gender':            gender,
-      'resident_number':   residentNumber,
-      'phone':             phone,
-      'address':           address,
-      'bank_name':         bankName,
-      'bank_account':      bankAccount,
-      'career':            career,
-      'notes':             notes,
-      'id_photo_path':     idPhotoPath,
+      'id':                 id,
+      'name':               name,
+      'gender':             gender,
+      'resident_number':    residentNumber,
+      'address':            address,
+      'phone':              phone,
+      'home_phone':         homePhone,
+      'bank_name':          bankName,
+      'bank_account':       bankAccount,
+      'career':             career,
+      'notes':              notes,
+      'id_photo_path':      idPhotoPath,
       'id_photo_back_path': idPhotoBackPath,
-      // bool → INTEGER (SQLite 호환)
-      'is_blacklisted':    isBlacklisted ? 1 : 0,
-      'blacklist_reason':  blacklistReason,
-      'created_at':        createdAt.toIso8601String(),
+      'is_blacklisted':     isBlacklisted ? 1 : 0,
+      'blacklist_reason':   blacklistReason,
+      'created_at':         createdAt.toIso8601String(),
     };
   }
 
   static bool _parseBool(dynamic v) {
-    if (v == null)    return false;
-    if (v is bool)    return v;
-    if (v is int)     return v != 0;
-    if (v is String)  return v == '1' || v.toLowerCase() == 'true';
+    if (v == null)   return false;
+    if (v is bool)   return v;
+    if (v is int)    return v != 0;
+    if (v is String) return v == '1' || v.toLowerCase() == 'true';
     return false;
   }
 

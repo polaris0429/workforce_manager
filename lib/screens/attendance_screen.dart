@@ -10,9 +10,10 @@ import '../models/client.dart';
 import '../models/attendance.dart';
 import '../utils/image_helper.dart';
 import '../utils/formatters.dart';
+import '../utils/resident_number_formatter.dart';
 
 // ─────────────────────────────────────────────────────────────
-// 커스텀 자동완성 위젯
+// 커스텀 자동완성 위젯 (IME 안전 + 마우스 클릭 수정 버전)
 // ─────────────────────────────────────────────────────────────
 class _KeyboardAutocomplete<T> extends StatefulWidget {
   final List<T> items;
@@ -36,11 +37,11 @@ class _KeyboardAutocomplete<T> extends StatefulWidget {
 }
 
 class _KeyboardAutocompleteState<T> extends State<_KeyboardAutocomplete<T>> {
-  final LayerLink _layerLink = LayerLink();
-  OverlayEntry? _overlay;
-  List<T> _filtered = [];
-  int  _highlightedIndex   = -1;
-  bool _isHoveringDropdown = false;
+  final LayerLink _layerLink       = LayerLink();
+  OverlayEntry?   _overlay;
+  List<T>         _filtered        = [];
+  int             _highlightedIndex = -1;
+  bool            _isHoveringDropdown = false;
 
   @override
   void initState() { super.initState(); widget.focusNode.addListener(_onFocusChange); }
@@ -138,7 +139,6 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     _tabCtrl = TabController(length: _tabLabels.length, vsync: this);
     _tabCtrl.addListener(() { if (mounted) setState(() {}); });
   }
-
   @override
   void dispose() { _tabCtrl.dispose(); super.dispose(); }
 
@@ -146,7 +146,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     final now = DateTime.now();
     switch (_tabCtrl.index) {
       case 0: return all.where((a) => _sameDay(a.workDate, now)).toList();
-      case 1: final s = DateTime(now.year, now.month, now.day - (now.weekday - 1)); return all.where((a) => !a.workDate.isBefore(s)).toList();
+      case 1: final s = DateTime(now.year, now.month, now.day-(now.weekday-1)); return all.where((a) => !a.workDate.isBefore(s)).toList();
       case 2: return all.where((a) => a.workDate.year == now.year && a.workDate.month == now.month).toList();
       case 3:
         if (_customStart == null && _customEnd == null) return all;
@@ -156,15 +156,12 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       default: return all;
     }
   }
-
   bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
   Future<void> _pickCustomRange() async {
-    final start = await showDatePicker(context: context, initialDate: _customStart ?? DateTime.now(),
-        firstDate: DateTime(2020), lastDate: DateTime(2030), helpText: '시작 날짜 선택');
+    final start = await showDatePicker(context: context, initialDate: _customStart ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2030), helpText: '시작 날짜 선택');
     if (start == null || !mounted) return;
-    final end = await showDatePicker(context: context, initialDate: _customEnd ?? start,
-        firstDate: start, lastDate: DateTime(2030), helpText: '종료 날짜 선택');
+    final end = await showDatePicker(context: context, initialDate: _customEnd ?? start, firstDate: start, lastDate: DateTime(2030), helpText: '종료 날짜 선택');
     if (end == null || !mounted) return;
     setState(() { _customStart = start; _customEnd = end; });
   }
@@ -210,12 +207,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             color: Colors.grey.shade50,
             child: Row(children: [
               Expanded(child: OutlinedButton.icon(icon: const Icon(Icons.calendar_today, size: 16),
-                  label: Text(_customStart != null ? DateFormat('yyyy-MM-dd').format(_customStart!) : '시작 날짜'),
-                  onPressed: _pickCustomRange)),
+                  label: Text(_customStart != null ? DateFormat('yyyy-MM-dd').format(_customStart!) : '시작 날짜'), onPressed: _pickCustomRange)),
               const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('~')),
               Expanded(child: OutlinedButton.icon(icon: const Icon(Icons.calendar_today, size: 16),
-                  label: Text(_customEnd != null ? DateFormat('yyyy-MM-dd').format(_customEnd!) : '종료 날짜'),
-                  onPressed: _pickCustomRange)),
+                  label: Text(_customEnd != null ? DateFormat('yyyy-MM-dd').format(_customEnd!) : '종료 날짜'), onPressed: _pickCustomRange)),
               const SizedBox(width: 8),
               if (_customStart != null || _customEnd != null)
                 IconButton(icon: const Icon(Icons.clear, size: 18), tooltip: '초기화',
@@ -233,20 +228,15 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                   itemCount: list.length,
                   itemBuilder: (context, i) {
                     final item = list[i];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: () => _showDialog(context, attendance: item),
+                    return Card(margin: const EdgeInsets.only(bottom: 10),
+                      child: InkWell(borderRadius: BorderRadius.circular(8), onTap: () => _showDialog(context, attendance: item),
                         child: Padding(padding: const EdgeInsets.all(12),
                           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Container(width: 52, padding: const EdgeInsets.symmetric(vertical: 6),
                               decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
                               child: Column(children: [
-                                Text(DateFormat('MM/dd').format(item.workDate),
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
-                                Text(DateFormat('E', 'ko').format(item.workDate),
-                                    style: TextStyle(fontSize: 11, color: Colors.blue.shade400)),
+                                Text(DateFormat('MM/dd').format(item.workDate), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                                Text(DateFormat('E', 'ko').format(item.workDate), style: TextStyle(fontSize: 11, color: Colors.blue.shade400)),
                               ])),
                             const SizedBox(width: 12),
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -254,42 +244,26 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                                 Text(item.workerName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                                 if (item.workerGender.isNotEmpty) ...[const SizedBox(width: 6),
                                   Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: item.workerGender == '남' ? Colors.blue.shade50 : Colors.pink.shade50,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: item.workerGender == '남' ? Colors.blue.shade200 : Colors.pink.shade200)),
-                                    child: Text(item.workerGender, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                                        color: item.workerGender == '남' ? Colors.blue.shade700 : Colors.pink.shade700)))],
+                                    decoration: BoxDecoration(color: item.workerGender == '남' ? Colors.blue.shade50 : Colors.pink.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: item.workerGender == '남' ? Colors.blue.shade200 : Colors.pink.shade200)),
+                                    child: Text(item.workerGender, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: item.workerGender == '남' ? Colors.blue.shade700 : Colors.pink.shade700)))],
                                 if (item.isPostpaid) ...[const SizedBox(width: 6),
                                   Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                    decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: Colors.orange.shade200)),
+                                    decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.shade200)),
                                     child: Text('후불', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade700)))],
                               ]),
                               const SizedBox(height: 4),
-                              Row(children: [const Icon(Icons.business, size: 13, color: Colors.grey), const SizedBox(width: 4),
-                                Text(item.clientName, style: const TextStyle(fontSize: 13))]),
+                              Row(children: [const Icon(Icons.business, size: 13, color: Colors.grey), const SizedBox(width: 4), Text(item.clientName, style: const TextStyle(fontSize: 13))]),
                               const SizedBox(height: 4),
-                              Row(children: [
-                                _infoChip('일당', cf.format(item.dailyWage), Colors.lightBlue),
-                                const SizedBox(width: 8),
-                                _infoChip('수수료', cf.format(item.commission), Colors.green),
-                              ]),
+                              Row(children: [_infoChip('일당', cf.format(item.dailyWage), Colors.lightBlue), const SizedBox(width: 8), _infoChip('수수료', cf.format(item.commission), Colors.green)]),
                               if (item.notes.isNotEmpty) ...[const SizedBox(height: 4),
                                 Row(children: [const Icon(Icons.notes, size: 13, color: Colors.grey), const SizedBox(width: 4),
-                                  Expanded(child: Text(item.notes, style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                      maxLines: 2, overflow: TextOverflow.ellipsis))])],
+                                  Expanded(child: Text(item.notes, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 2, overflow: TextOverflow.ellipsis))])],
                             ])),
                             Column(mainAxisAlignment: MainAxisAlignment.start, children: [
-                              if (item.idPhotoPath != null)
-                                const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.image, color: Colors.blue, size: 18)),
-                              IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
-                                  padding: EdgeInsets.zero, constraints: const BoxConstraints(),
-                                  onPressed: () => _confirmDelete(context, item)),
+                              if (item.idPhotoPath != null) const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.image, color: Colors.blue, size: 18)),
+                              IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => _confirmDelete(context, item)),
                             ]),
-                          ])),
-                      ),
-                    );
+                          ]))));
                   }),
         ),
       ]),
@@ -304,8 +278,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         Text(label, style: TextStyle(fontSize: 11, color: color.shade600)),
         const SizedBox(width: 4),
         Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color.shade800)),
-      ]),
-    );
+      ]));
   }
 
   void _showDialog(BuildContext context, {Attendance? attendance}) {
@@ -332,16 +305,30 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   final _clientIdNotifier = ValueNotifier<String?>(null);
 
   // 근로자 필드
-  late TextEditingController _workerNameCtrl, _workerResidentCtrl, _workerPhoneCtrl,
-      _workerAddressCtrl, _workerBankNameCtrl, _workerBankAccountCtrl, _workerCareerCtrl;
+  late TextEditingController _workerNameCtrl;
   String _workerGender = '';
+  late TextEditingController _workerResidentCtrl;   // 주민번호 (숫자만 저장)
+  late TextEditingController _workerPhoneCtrl;       // 휴대폰번호
+  late TextEditingController _workerHomePhoneCtrl;   // 집전화번호 (선택)
+  late TextEditingController _workerAddressCtrl;
+  late TextEditingController _workerBankNameCtrl;
+  late TextEditingController _workerBankAccountCtrl;
+  late TextEditingController _workerCareerCtrl;
 
-  // 거래처 필드 — 기존 + 신규(담당자, 연락처, 이메일, 비고)
-  late TextEditingController _clientNameCtrl, _clientAddressCtrl,
-      _clientContactCtrl, _clientPhoneCtrl, _clientEmailCtrl, _clientNotesCtrl;
+  // 거래처 필드
+  late TextEditingController _clientNameCtrl;
+  late TextEditingController _clientAddressCtrl;
+  late TextEditingController _clientContactCtrl;
+  late TextEditingController _clientEmailCtrl;
+  late TextEditingController _clientPhoneCtrl;       // 연락처
+  late TextEditingController _clientOfficePhoneCtrl; // 회사번호 (선택)
+  late TextEditingController _clientNotesCtrl;
 
   // 근무 정보
-  late TextEditingController _wageCtrl, _commissionRateCtrl, _notesCtrl;
+  late TextEditingController _wageCtrl;
+  late TextEditingController _commissionRateCtrl;
+  late TextEditingController _notesCtrl;
+
   late DateTime _selectedDate;
   bool  _isPostpaid = false;
   File? _frontImage, _backImage;
@@ -357,23 +344,23 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _workerGender = att?.workerGender ?? '';
 
     _workerNameCtrl        = TextEditingController(text: att?.workerName ?? '');
-    _workerResidentCtrl    = TextEditingController(text: att?.workerResidentNumber ?? '');
+    // 주민번호: 저장된 숫자열 → 화면 포맷 (자동 대시)
+    _workerResidentCtrl    = TextEditingController(
+        text: ResidentNumberFormatter.format(att?.workerResidentNumber ?? ''));
     _workerPhoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(att?.workerPhone ?? ''));
+    _workerHomePhoneCtrl   = TextEditingController(text: PhoneInputFormatter.format(att?.workerHomePhone ?? ''));
     _workerAddressCtrl     = TextEditingController(text: att?.workerAddress ?? '');
     _workerBankNameCtrl    = TextEditingController(text: att?.workerBankName ?? '');
     _workerBankAccountCtrl = TextEditingController(text: att?.workerBankAccount ?? '');
     _workerCareerCtrl      = TextEditingController(text: att?.workerCareer ?? '');
 
-    _clientNameCtrl    = TextEditingController(text: att?.clientName ?? '');
-    _clientAddressCtrl = TextEditingController(text: att?.clientAddress ?? '');
-    // 거래처 상세 — 수정 시 기존 거래처 정보에서 채움
-    final existingClient = att?.clientId != null
-        ? null // 나중에 onSelected에서 채움
-        : null;
-    _clientContactCtrl = TextEditingController();
-    _clientPhoneCtrl   = TextEditingController();
-    _clientEmailCtrl   = TextEditingController();
-    _clientNotesCtrl   = TextEditingController();
+    _clientNameCtrl        = TextEditingController(text: att?.clientName ?? '');
+    _clientAddressCtrl     = TextEditingController(text: att?.clientAddress ?? '');
+    _clientContactCtrl     = TextEditingController(text: att?.clientContactPerson ?? '');
+    _clientEmailCtrl       = TextEditingController(text: att?.clientEmail ?? '');
+    _clientPhoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(att?.clientPhone ?? ''));
+    _clientOfficePhoneCtrl = TextEditingController(text: PhoneInputFormatter.format(att?.clientOfficePhone ?? ''));
+    _clientNotesCtrl       = TextEditingController(text: att?.clientNotes ?? '');
 
     _wageCtrl           = TextEditingController(text: att?.dailyWage != null ? att!.dailyWage.toStringAsFixed(0) : '');
     _commissionRateCtrl = TextEditingController(text: att?.commissionRate != null ? att!.commissionRate.toStringAsFixed(0) : '10');
@@ -392,21 +379,22 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _workerIdNotifier.dispose(); _clientIdNotifier.dispose();
     _workerNameFocus.dispose();  _clientNameFocus.dispose();
     for (final c in [
-      _workerNameCtrl, _workerResidentCtrl, _workerPhoneCtrl, _workerAddressCtrl,
-      _workerBankNameCtrl, _workerBankAccountCtrl, _workerCareerCtrl,
+      _workerNameCtrl, _workerResidentCtrl, _workerPhoneCtrl, _workerHomePhoneCtrl,
+      _workerAddressCtrl, _workerBankNameCtrl, _workerBankAccountCtrl, _workerCareerCtrl,
       _clientNameCtrl, _clientAddressCtrl, _clientContactCtrl,
-      _clientPhoneCtrl, _clientEmailCtrl, _clientNotesCtrl,
+      _clientEmailCtrl, _clientPhoneCtrl, _clientOfficePhoneCtrl, _clientNotesCtrl,
       _wageCtrl, _commissionRateCtrl, _notesCtrl,
     ]) c.dispose();
     super.dispose();
   }
 
-  // ── 근로자 선택 ──────────────────────────────────────────
+  // ── 근로자 선택 → 모든 필드 자동 채움 ────────────────────
   void _onWorkerSelected(Worker w) {
     _workerIdNotifier.value = w.id;
     setState(() { _workerGender = w.gender; });
-    _workerResidentCtrl.text    = w.residentNumber;
+    _workerResidentCtrl.text    = ResidentNumberFormatter.format(w.residentNumber);
     _workerPhoneCtrl.text       = PhoneInputFormatter.format(w.phone);
+    _workerHomePhoneCtrl.text   = PhoneInputFormatter.format(w.homePhone);
     _workerAddressCtrl.text     = w.address;
     _workerBankNameCtrl.text    = w.bankName;
     _workerBankAccountCtrl.text = w.bankAccount;
@@ -417,13 +405,13 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
 
   // ── 거래처 선택 → 모든 필드 자동 채움 ────────────────────
   void _onClientSelected(Client c) {
-    _clientIdNotifier.value = c.id;
-    _clientAddressCtrl.text = c.address;
-    _clientContactCtrl.text = c.contactPerson;
-    // 전화번호: 저장된 숫자 → 포맷 변환
-    _clientPhoneCtrl.text   = PhoneInputFormatter.format(c.phone);
-    _clientEmailCtrl.text   = c.email;
-    _clientNotesCtrl.text   = c.notes;
+    _clientIdNotifier.value        = c.id;
+    _clientAddressCtrl.text        = c.address;
+    _clientContactCtrl.text        = c.contactPerson;
+    _clientEmailCtrl.text          = c.email;
+    _clientPhoneCtrl.text          = PhoneInputFormatter.format(c.phone);
+    _clientOfficePhoneCtrl.text    = PhoneInputFormatter.format(c.officePhone);
+    _clientNotesCtrl.text          = c.notes;
   }
 
   Widget _genderButton(String label, MaterialColor color) {
@@ -452,9 +440,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
       },
       child: Container(height: 80,
         decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(4)),
-        child: file == null
-            ? const Center(child: Icon(Icons.camera_alt, color: Colors.grey))
-            : Image.file(file, fit: BoxFit.cover))));
+        child: file == null ? const Center(child: Icon(Icons.camera_alt, color: Colors.grey)) : Image.file(file, fit: BoxFit.cover))));
   }
 
   String? _validateNumber(String? v, String fn) {
@@ -469,7 +455,12 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   void _save() {
     if (!_formKey.currentState!.validate()) return;
     final provider   = context.read<WorkforceProvider>();
-    final cleanPhone = _workerPhoneCtrl.text.replaceAll('-', '').trim();
+    // 주민번호: 대시 제거 후 숫자만
+    final cleanResident    = ResidentNumberFormatter.strip(_workerResidentCtrl.text);
+    final cleanPhone       = _workerPhoneCtrl.text.replaceAll('-', '').trim();
+    final cleanHomePhone   = _workerHomePhoneCtrl.text.replaceAll('-', '').trim();
+    final cleanClientPhone = _clientPhoneCtrl.text.replaceAll('-', '').trim();
+    final cleanOfficePhone = _clientOfficePhoneCtrl.text.replaceAll('-', '').trim();
     final wId  = _workerIdNotifier.value;
     final cId  = _clientIdNotifier.value;
     final wage = double.parse(_wageCtrl.text.trim());
@@ -483,11 +474,15 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
       if (widget.attendance == null) {
         provider.addAttendance(
           workerId: wId, workerName: _workerNameCtrl.text.trim(), workerGender: _workerGender,
-          workerResidentNumber: _workerResidentCtrl.text.trim(), workerPhone: cleanPhone,
-          workerAddress: _workerAddressCtrl.text.trim(), workerBankName: _workerBankNameCtrl.text.trim(),
-          workerBankAccount: _workerBankAccountCtrl.text.trim(), workerCareer: _workerCareerCtrl.text.trim(),
+          workerResidentNumber: cleanResident, workerPhone: cleanPhone,
+          workerHomePhone: cleanHomePhone, workerAddress: _workerAddressCtrl.text.trim(),
+          workerBankName: _workerBankNameCtrl.text.trim(), workerBankAccount: _workerBankAccountCtrl.text.trim(),
+          workerCareer: _workerCareerCtrl.text.trim(),
           clientId: cId, clientName: _clientNameCtrl.text.trim(),
           clientAddress: _clientAddressCtrl.text.trim(),
+          clientContactPerson: _clientContactCtrl.text.trim(),
+          clientPhone: cleanClientPhone, clientOfficePhone: cleanOfficePhone,
+          clientEmail: _clientEmailCtrl.text.trim(), clientNotes: _clientNotesCtrl.text.trim(),
           workDate: _selectedDate, dailyWage: wage, commissionRate: rate,
           isPostpaid: _isPostpaid, notes: _notesCtrl.text.trim(),
           idPhotoFront: _frontImage, idPhotoBack: _backImage,
@@ -495,27 +490,26 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
       } else {
         provider.updateAttendance(id: widget.attendance!.id, data: {
           'worker_id': wId, 'worker_name': _workerNameCtrl.text.trim(),
-          'worker_gender': _workerGender, 'worker_resident_number': _workerResidentCtrl.text.trim(),
-          'worker_phone': cleanPhone, 'worker_address': _workerAddressCtrl.text.trim(),
-          'worker_bank_name': _workerBankNameCtrl.text.trim(),
-          'worker_bank_account': _workerBankAccountCtrl.text.trim(),
-          'worker_career': _workerCareerCtrl.text.trim(), 'client_id': cId,
-          'client_name': _clientNameCtrl.text.trim(),
+          'worker_gender': _workerGender, 'worker_resident_number': cleanResident,
+          'worker_phone': cleanPhone, 'worker_home_phone': cleanHomePhone,
+          'worker_address': _workerAddressCtrl.text.trim(),
+          'worker_bank_name': _workerBankNameCtrl.text.trim(), 'worker_bank_account': _workerBankAccountCtrl.text.trim(),
+          'worker_career': _workerCareerCtrl.text.trim(),
+          'client_id': cId, 'client_name': _clientNameCtrl.text.trim(),
           'client_address': _clientAddressCtrl.text.trim(),
+          'client_contact_person': _clientContactCtrl.text.trim(),
+          'client_phone': cleanClientPhone, 'client_office_phone': cleanOfficePhone,
+          'client_email': _clientEmailCtrl.text.trim(), 'client_notes': _clientNotesCtrl.text.trim(),
           'work_date': _selectedDate, 'daily_wage': wage, 'commission_rate': rate,
           'is_postpaid': _isPostpaid, 'notes': _notesCtrl.text.trim(),
         }, newFrontImage: _frontImage, newBackImage: _backImage);
       }
       Navigator.pop(context);
 
-      // 신규 등록일 때만 제안
-      // 근로자 제안 먼저 → then 으로 완료 후 거래처 제안
       if (widget.attendance == null) {
         final needWorker = wId == null && provider.suggestWorkerRegistration;
         final needClient = cId == null && provider.suggestClientRegistration;
-
         if (needWorker) {
-          // 근로자 제안 완료(확인/취소) 후 거래처 제안
           _askRegisterWorker(onDone: needClient ? _askRegisterClient : null);
         } else if (needClient) {
           _askRegisterClient();
@@ -538,37 +532,34 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   }
 
   // ── 근로자 등록 제안 ──────────────────────────────────────
-  // [onDone] : 다이얼로그가 닫힌 후(확인 또는 나중에) 실행할 콜백
   void _askRegisterWorker({VoidCallback? onDone}) {
     final provider   = context.read<WorkforceProvider>();
     final cleanPhone = _workerPhoneCtrl.text.replaceAll('-', '').trim();
     if (provider.workers.any((w) => w.phone.replaceAll('-','').trim() == cleanPhone)) {
-      onDone?.call(); // 이미 있으면 바로 다음 단계
-      return;
+      onDone?.call(); return;
     }
-
     showDialog(context: context, builder: (ctx) => AlertDialog(
       title: const Row(children: [Icon(Icons.person_add, color: Colors.blue), SizedBox(width: 8), Text('근로자 등록')]),
       content: Text('${_workerNameCtrl.text.trim()} 님을 근로자 목록에 등록하시겠습니까?\n\n등록하면 다음 출근 등록 시 자동완성에서 바로 선택할 수 있습니다.'),
       actions: [
-        TextButton(
-          onPressed: () { Navigator.pop(ctx); onDone?.call(); }, // 나중에 → 거래처 제안으로
-          child: const Text('나중에'),
-        ),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.person_add, size: 16), label: const Text('등록'),
+        TextButton(onPressed: () { Navigator.pop(ctx); onDone?.call(); }, child: const Text('나중에')),
+        ElevatedButton.icon(icon: const Icon(Icons.person_add, size: 16), label: const Text('등록'),
           onPressed: () {
+            final cleanResident  = ResidentNumberFormatter.strip(_workerResidentCtrl.text);
+            final cleanPhone     = _workerPhoneCtrl.text.replaceAll('-','').trim();
+            final cleanHomePhone = _workerHomePhoneCtrl.text.replaceAll('-','').trim();
             provider.addWorker(
               name: _workerNameCtrl.text.trim(), gender: _workerGender,
-              residentNumber: _workerResidentCtrl.text.trim(), phone: cleanPhone,
-              address: _workerAddressCtrl.text.trim(), bankName: _workerBankNameCtrl.text.trim(),
-              bankAccount: _workerBankAccountCtrl.text.trim(), career: _workerCareerCtrl.text.trim(),
-              notes: _notesCtrl.text.trim(), idPhotoFront: _frontImage, idPhotoBack: _backImage,
+              residentNumber: cleanResident, address: _workerAddressCtrl.text.trim(),
+              phone: cleanPhone, homePhone: cleanHomePhone,
+              bankName: _workerBankNameCtrl.text.trim(), bankAccount: _workerBankAccountCtrl.text.trim(),
+              career: _workerCareerCtrl.text.trim(), notes: _notesCtrl.text.trim(),
+              idPhotoFront: _frontImage, idPhotoBack: _backImage,
             );
             Navigator.pop(ctx);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('${_workerNameCtrl.text.trim()} 님이 근로자 목록에 등록되었습니다.')));
-            onDone?.call(); // 등록 완료 → 거래처 제안으로
+            onDone?.call();
           }),
       ],
     ));
@@ -580,28 +571,23 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     final clientName = _clientNameCtrl.text.trim();
     if (clientName.isEmpty) return;
     if (provider.clients.any((c) => c.name == clientName)) return;
-
     showDialog(context: context, builder: (ctx) => AlertDialog(
       title: const Row(children: [Icon(Icons.business, color: Colors.blue), SizedBox(width: 8), Text('거래처 등록')]),
       content: Text('"$clientName"을 거래처 목록에 등록하시겠습니까?\n\n등록하면 다음 출근 등록 시 자동완성에서 바로 선택할 수 있습니다.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('나중에')),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.business, size: 16), label: const Text('등록'),
+        ElevatedButton.icon(icon: const Icon(Icons.business, size: 16), label: const Text('등록'),
           onPressed: () {
-            final cleanClientPhone = _clientPhoneCtrl.text.replaceAll('-', '').trim();
             provider.addClient(Client(
-              name:          clientName,
-              address:       _clientAddressCtrl.text.trim(),
+              name: clientName, address: _clientAddressCtrl.text.trim(),
               contactPerson: _clientContactCtrl.text.trim(),
-              phone:         cleanClientPhone,
-              email:         _clientEmailCtrl.text.trim(),
-              notes:         _clientNotesCtrl.text.trim(),
-              createdAt:     DateTime.now(),
+              email: _clientEmailCtrl.text.trim(),
+              phone: _clientPhoneCtrl.text.replaceAll('-','').trim(),
+              officePhone: _clientOfficePhoneCtrl.text.replaceAll('-','').trim(),
+              notes: _clientNotesCtrl.text.trim(), createdAt: DateTime.now(),
             ));
             Navigator.pop(ctx);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('"$clientName"이 거래처 목록에 등록되었습니다.')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"$clientName"이 거래처 목록에 등록되었습니다.')));
           }),
       ],
     ));
@@ -617,21 +603,22 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
       content: SizedBox(width: 560, child: Form(key: _formKey,
         child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-          // ── 날짜 ───────────────────────────────────────────
+          // 날짜
           ListTile(
             title: Text('날짜: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}'),
             trailing: const Icon(Icons.calendar_today),
             onTap: () async {
-              final picked = await showDatePicker(context: context, initialDate: _selectedDate,
-                  firstDate: DateTime(2020), lastDate: DateTime(2030));
-              if (picked != null) setState(() => _selectedDate = picked);
+              final p = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
+              if (p != null) setState(() => _selectedDate = p);
             }),
           const Divider(),
 
           // ── 근로자 정보 ────────────────────────────────────
           const Align(alignment: Alignment.centerLeft,
-              child: Text('근로자 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
+            child: Text('근로자 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
           const SizedBox(height: 8),
+
+          // 이름 + 성별
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Expanded(child: _KeyboardAutocomplete<Worker>(
               key: _workerAutoKey, items: workers, displayString: (w) => w.name,
@@ -656,9 +643,26 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
             ]),
           ]),
           const SizedBox(height: 6),
-          TextFormField(controller: _workerResidentCtrl, decoration: const InputDecoration(labelText: '주민등록번호', hintText: '000000-0000000')),
-          TextFormField(controller: _workerPhoneCtrl, decoration: const InputDecoration(labelText: '전화번호', hintText: '010-0000-0000'), inputFormatters: [PhoneInputFormatter()]),
+
+          // 주민등록번호 (자동 대시)
+          TextFormField(controller: _workerResidentCtrl,
+              decoration: const InputDecoration(labelText: '주민등록번호', hintText: '000000-0000000'),
+              keyboardType: TextInputType.number,
+              inputFormatters: [ResidentNumberFormatter()]),
+
+          // 주소
           TextFormField(controller: _workerAddressCtrl, decoration: const InputDecoration(labelText: '주소')),
+
+          // 휴대폰번호 *
+          TextFormField(controller: _workerPhoneCtrl,
+              decoration: const InputDecoration(labelText: '휴대폰번호', hintText: '010-0000-0000'),
+              inputFormatters: [PhoneInputFormatter()]),
+
+          // 집전화번호 (선택)
+          TextFormField(controller: _workerHomePhoneCtrl,
+              decoration: const InputDecoration(labelText: '집전화번호', hintText: '02-0000-0000 (선택)'),
+              inputFormatters: [PhoneInputFormatter()]),
+
           Row(children: [
             Expanded(child: TextFormField(controller: _workerBankNameCtrl, decoration: const InputDecoration(labelText: '은행명'))),
             const SizedBox(width: 10),
@@ -669,8 +673,9 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
 
           // ── 거래처 정보 ────────────────────────────────────
           const Align(alignment: Alignment.centerLeft,
-              child: Text('거래처 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
+            child: Text('거래처 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
           const SizedBox(height: 8),
+
           _KeyboardAutocomplete<Client>(
             key: _clientAutoKey, items: clients, displayString: (c) => c.name,
             controller: _clientNameCtrl, focusNode: _clientNameFocus,
@@ -678,12 +683,9 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
             validator: (v) => (v == null || v.trim().isEmpty) ? '거래처를 입력하세요' : null,
             onTextChanged: () {
               _clientIdNotifier.value = null;
-              // 직접 입력 시 자동채움 필드 초기화
-              _clientAddressCtrl.clear();
-              _clientContactCtrl.clear();
-              _clientPhoneCtrl.clear();
-              _clientEmailCtrl.clear();
-              _clientNotesCtrl.clear();
+              _clientAddressCtrl.clear(); _clientContactCtrl.clear();
+              _clientEmailCtrl.clear(); _clientPhoneCtrl.clear();
+              _clientOfficePhoneCtrl.clear(); _clientNotesCtrl.clear();
             },
             onSelected: _onClientSelected,
             itemBuilder: (Client c, bool hl, VoidCallback onTap) => InkWell(onTap: onTap,
@@ -693,25 +695,29 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
                   subtitle: c.address.isNotEmpty ? Text(c.address, style: const TextStyle(fontSize: 12, color: Colors.grey)) : null))),
           ),
           const SizedBox(height: 6),
-          // 현장 주소
           TextFormField(controller: _clientAddressCtrl, decoration: const InputDecoration(labelText: '현장 주소')),
-          // 담당자 + 연락처
+          // 담당자 + 이메일
           Row(children: [
             Expanded(child: TextFormField(controller: _clientContactCtrl, decoration: const InputDecoration(labelText: '담당자'))),
             const SizedBox(width: 10),
+            Expanded(child: TextFormField(controller: _clientEmailCtrl, decoration: const InputDecoration(labelText: '이메일'))),
+          ]),
+          // 연락처 + 회사번호
+          Row(children: [
             Expanded(child: TextFormField(controller: _clientPhoneCtrl,
                 decoration: const InputDecoration(labelText: '연락처', hintText: '010-0000-0000'),
                 inputFormatters: [PhoneInputFormatter()])),
+            const SizedBox(width: 10),
+            Expanded(child: TextFormField(controller: _clientOfficePhoneCtrl,
+                decoration: const InputDecoration(labelText: '회사번호', hintText: '02-0000-0000 (선택)'),
+                inputFormatters: [PhoneInputFormatter()])),
           ]),
-          // 이메일
-          TextFormField(controller: _clientEmailCtrl, decoration: const InputDecoration(labelText: '이메일')),
-          // 비고
           TextFormField(controller: _clientNotesCtrl, decoration: const InputDecoration(labelText: '비고'), maxLines: 2),
           const SizedBox(height: 12), const Divider(),
 
           // ── 근무 정보 ──────────────────────────────────────
           const Align(alignment: Alignment.centerLeft,
-              child: Text('근무 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
+            child: Text('근무 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(child: TextFormField(controller: _wageCtrl, decoration: const InputDecoration(labelText: '일당 *'),

@@ -3,7 +3,8 @@ class Client {
   String   name;
   String   address;
   String   contactPerson;
-  String   phone;
+  String   phone;        // 연락처 (담당자 휴대폰 등)
+  String   officePhone;  // 회사번호 (선택)
   String   email;
   String   notes;
   DateTime createdAt;
@@ -14,6 +15,7 @@ class Client {
     this.address       = '',
     this.contactPerson = '',
     this.phone         = '',
+    this.officePhone   = '',
     this.email         = '',
     this.notes         = '',
     required this.createdAt,
@@ -26,6 +28,7 @@ class Client {
       address:       data['address']        ?? '',
       contactPerson: data['contact_person'] ?? '',
       phone:         data['phone']          ?? '',
+      officePhone:   data['office_phone']   ?? '',
       email:         data['email']          ?? '',
       notes:         data['notes']          ?? '',
       createdAt:     _parseDate(data['created_at']),
@@ -39,6 +42,7 @@ class Client {
       'address':        address,
       'contact_person': contactPerson,
       'phone':          phone,
+      'office_phone':   officePhone,
       'email':          email,
       'notes':          notes,
       'created_at':     createdAt.toIso8601String(),

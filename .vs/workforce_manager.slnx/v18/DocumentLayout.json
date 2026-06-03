@@ -76,7 +76,7 @@
               "RelativeDocumentMoniker": "lib\\providers\\workforce_provider.dart",
               "ToolTip": "C:\\Users\\Admin\\Documents\\\uACF5\uC720\\workforce_manager\\lib\\providers\\workforce_provider.dart",
               "RelativeToolTip": "lib\\providers\\workforce_provider.dart",
-              "ViewState": "AgIAAHMBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAAEoBAAAAAAAAAAAAAFYBAABOAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
               "WhenOpened": "2026-06-02T04:56:05.631Z",
               "EditorCaption": ""
@@ -91,8 +91,7 @@
               "RelativeToolTip": "lib\\models\\sms_preset.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:56:03.262Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:56:03.262Z"
             },
             {
               "$type": "Document",
@@ -104,8 +103,7 @@
               "RelativeToolTip": "lib\\models\\client.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:55:52.283Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:55:52.283Z"
             },
             {
               "$type": "Document",
@@ -117,8 +115,7 @@
               "RelativeToolTip": "lib\\models\\attendance.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:55:46.087Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:55:46.087Z"
             },
             {
               "$type": "Document",
@@ -130,8 +127,7 @@
               "RelativeToolTip": "lib\\models\\worker.dart",
               "ViewState": "AgIAABsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:55:42.394Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:55:42.394Z"
             },
             {
               "$type": "Document",
@@ -143,8 +139,7 @@
               "RelativeToolTip": "lib\\services\\backup_service.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:55:39.563Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:55:39.563Z"
             },
             {
               "$type": "Document",
@@ -156,8 +151,7 @@
               "RelativeToolTip": "lib\\utils\\image_helper.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:55:37.938Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:55:37.938Z"
             },
             {
               "$type": "Document",
@@ -169,8 +163,7 @@
               "RelativeToolTip": "lib\\utils\\formatters.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:55:33.962Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:55:33.962Z"
             },
             {
               "$type": "Document",
@@ -182,8 +175,7 @@
               "RelativeToolTip": "lib\\screens\\attendance_screen.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:55:21.414Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:55:21.414Z"
             },
             {
               "$type": "Document",
@@ -195,8 +187,7 @@
               "RelativeToolTip": "lib\\screens\\fees_screen.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:55:17.503Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:55:17.503Z"
             },
             {
               "$type": "Document",
@@ -208,8 +199,7 @@
               "RelativeToolTip": "lib\\screens\\dashboard_screen.dart",
               "ViewState": "AgIAAJwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:54:24.563Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:54:24.563Z"
             },
             {
               "$type": "Document",
@@ -221,8 +211,7 @@
               "RelativeToolTip": "lib\\screens\\home_screen.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:54:15.147Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:54:15.147Z"
             },
             {
               "$type": "Document",
@@ -234,8 +223,7 @@
               "RelativeToolTip": "lib\\screens\\workers_screen.dart",
               "ViewState": "AgIAAA8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:54:06.676Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:54:06.676Z"
             },
             {
               "$type": "Document",
@@ -247,8 +235,7 @@
               "RelativeToolTip": "lib\\screens\\settings_screen.dart",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2026-06-02T04:54:00.841Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-02T04:54:00.841Z"
             },
             {
               "$type": "Bookmark",

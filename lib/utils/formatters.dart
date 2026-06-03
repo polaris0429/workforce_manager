@@ -4,54 +4,48 @@ class PhoneInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    
-    // 1. ¼ıÀÚ¸¸ ÃßÃâ
-    final text = newValue.text.replaceAll(RegExp(r'\D'), '');
-    
-    // 2. ±æÀÌ¿¡ µû¶ó Æ÷¸ËÆÃ Àû¿ë
-    // 01012341234 -> 010-1234-1234 (11ÀÚ)
-    // 0311231234 -> 031-123-1234 (10ÀÚ)
-    // 0212341234 -> 02-1234-1234 (10ÀÚ, ¼­¿ï)
-    
-    String formattedText = '';
-    if (text.length <= 3) {
-      formattedText = text;
-    } else if (text.length <= 6) {
-      formattedText = '${text.substring(0, 3)}-${text.substring(3)}';
-      // ¼­¿ï(02) ¿¹¿Ü Ã³¸® µîÀº ÇÊ¿ä ½Ã Ãß°¡ °¡´ÉÇÏ³ª, 
-      // ÀÏ¹İÀûÀÎ ¸ğ¹ÙÀÏ/Áö¿ª¹øÈ£ ·ÎÁ÷(3ÀÚ¸® ½ÃÀÛ) ±âÁØÀ¸·Î ÀÛ¼º
-      if (text.startsWith('02') && text.length > 2) {
-         // 02-xxxx Çü½Ä ´ëÀÀÀº ·ÎÁ÷ÀÌ º¹ÀâÇØÁö¹Ç·Î 
-         // ¿©±â¼­´Â ¿äÃ»ÇÏ½Å 3-3-4 / 3-4-4 À§ÁÖ·Î Ã³¸®
+
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+
+    String formatted;
+    if (digits.length <= 3) {
+      formatted = digits;
+    } else if (digits.startsWith('02')) {
+      // ì„œìš¸ ì§€ì—­ë²ˆí˜¸: 02-XXXX-XXXX (2-4-4) ë˜ëŠ” 02-XXX-XXXX (2-3-4)
+      if (digits.length <= 5) {
+        formatted = '${digits.substring(0, 2)}-${digits.substring(2)}';
+      } else if (digits.length <= 9) {
+        formatted = '${digits.substring(0, 2)}-${digits.substring(2, 5)}-${digits.substring(5)}';
+      } else {
+        formatted = '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6, digits.length.clamp(0, 10))}';
       }
-    } else if (text.length <= 10) {
-      // 10ÀÚ¸® ÀÌÇÏÀÏ ¶§ (031-123-1234 µî)
-      // º¸Åë 3-3-4 Æ÷¸Ë
-       formattedText = '${text.substring(0, 3)}-${text.substring(3, 6)}-${text.substring(6)}';
+    } else if (digits.length <= 7) {
+      formatted = '${digits.substring(0, 3)}-${digits.substring(3)}';
+    } else if (digits.length <= 10) {
+      // 3-3-4
+      formatted = '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
     } else {
-      // 11ÀÚ¸® (010-1234-1234)
-      formattedText = '${text.substring(0, 3)}-${text.substring(3, 7)}-${text.substring(7, text.length > 11 ? 11 : text.length)}';
+      // 3-4-4 (íœ´ëŒ€í° 010-XXXX-XXXX)
+      formatted = '${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7, digits.length.clamp(0, 11))}';
     }
 
     return TextEditingValue(
-      text: formattedText,
-      selection: TextSelection.collapsed(offset: formattedText.length),
+      text:      formatted,
+      // ì»¤ì„œ í•­ìƒ ë§¨ ë + composing ì´ˆê¸°í™” â†’ í•œê¸€ IME ì»¤ì„œ ì• ê¹œë¹¡ì„ ë°©ì§€
+      selection: TextSelection.collapsed(offset: formatted.length),
+      composing: TextRange.empty,
     );
   }
-  
-  // DB¿¡¼­ °¡Á®¿Â ¼ıÀÚ ¹®ÀÚ¿­À» È­¸é Ç¥½Ã¿ëÀ¸·Î º¯È¯ÇÏ´Â Á¤Àû ¸Ş¼­µå
+
   static String format(String text) {
     if (text.isEmpty) return '';
     final digits = text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length == 11) {
-       return '${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}';
-    } else if (digits.length == 10) {
-       // 02·Î ½ÃÀÛÇÏ´ÂÁö Ã¼Å©ÇÏ¿© 02-1234-5678 or 031-123-4567 ±¸ºĞ °¡´É
-       if (digits.startsWith('02')) {
-         return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6)}';
-       }
-       return '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
+    if (digits.startsWith('02')) {
+      if (digits.length == 9)  return '${digits.substring(0, 2)}-${digits.substring(2, 5)}-${digits.substring(5)}';
+      if (digits.length == 10) return '${digits.substring(0, 2)}-${digits.substring(2, 6)}-${digits.substring(6)}';
     }
+    if (digits.length == 10) return '${digits.substring(0, 3)}-${digits.substring(3, 6)}-${digits.substring(6)}';
+    if (digits.length == 11) return '${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}';
     return digits;
   }
 }

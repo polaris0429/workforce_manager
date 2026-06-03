@@ -7,6 +7,7 @@ import '../providers/workforce_provider.dart';
 import '../models/worker.dart';
 import '../utils/image_helper.dart';
 import '../utils/formatters.dart';
+import '../utils/resident_number_formatter.dart';
 
 class WorkersScreen extends StatefulWidget {
   const WorkersScreen({super.key});
@@ -16,12 +17,9 @@ class WorkersScreen extends StatefulWidget {
 
 class _WorkersScreenState extends State<WorkersScreen>
     with SingleTickerProviderStateMixin {
-
   late TabController _tabCtrl;
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
-
-  // 탭 순서: 전체(블랙리스트 제외) | 남성 | 여성 | 블랙리스트
   static const _tabs = ['전체', '남성', '여성', '블랙리스트'];
 
   @override
@@ -31,43 +29,24 @@ class _WorkersScreenState extends State<WorkersScreen>
   }
 
   @override
-  void dispose() {
-    _tabCtrl.dispose();
-    _searchCtrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _tabCtrl.dispose(); _searchCtrl.dispose(); super.dispose(); }
 
-  /// 검색 중일 때는 전체(블랙리스트 포함) 표시, 탭 필터 무시
   List<Worker> _getList(List<Worker> all, int tabIndex) {
     final q = _searchQuery.trim();
-
-    // 검색 중 → 블랙리스트 포함 전체에서 필터
     if (q.isNotEmpty) {
       return all.where((w) =>
           w.name.contains(q) ||
           PhoneInputFormatter.format(w.phone).contains(q) ||
           w.phone.contains(q))
-          .toList()
-          ..sort((a, b) => a.name.compareTo(b.name));
+          .toList()..sort((a, b) => a.name.compareTo(b.name));
     }
-
-    // 탭 필터
     late List<Worker> filtered;
     switch (tabIndex) {
-      case 0: // 전체 (블랙리스트 제외)
-        filtered = all.where((w) => !w.isBlacklisted).toList();
-        break;
-      case 1: // 남성 (블랙리스트 제외)
-        filtered = all.where((w) => !w.isBlacklisted && w.gender == '남').toList();
-        break;
-      case 2: // 여성 (블랙리스트 제외)
-        filtered = all.where((w) => !w.isBlacklisted && w.gender == '여').toList();
-        break;
-      case 3: // 블랙리스트만
-        filtered = all.where((w) => w.isBlacklisted).toList();
-        break;
-      default:
-        filtered = List.from(all);
+      case 0: filtered = all.where((w) => !w.isBlacklisted).toList(); break;
+      case 1: filtered = all.where((w) => !w.isBlacklisted && w.gender == '남').toList(); break;
+      case 2: filtered = all.where((w) => !w.isBlacklisted && w.gender == '여').toList(); break;
+      case 3: filtered = all.where((w) => w.isBlacklisted).toList(); break;
+      default: filtered = List.from(all);
     }
     filtered.sort((a, b) => a.name.compareTo(b.name));
     return filtered;
@@ -82,17 +61,13 @@ class _WorkersScreenState extends State<WorkersScreen>
       appBar: AppBar(
         title: const Text('근로자 관리'),
         actions: [
-          // 연두색 + 버튼
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF92D050),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.add),
-              label: const Text('근로자 등록'),
+                backgroundColor: const Color(0xFF92D050), foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              icon: const Icon(Icons.add), label: const Text('근로자 등록'),
               onPressed: () => _showWorkerDialog(context),
             ),
           ),
@@ -103,13 +78,12 @@ class _WorkersScreenState extends State<WorkersScreen>
           indicatorColor: const Color(0xFF92D050),
           labelColor: const Color(0xFF4CAF50),
           unselectedLabelColor: Colors.grey,
-          onTap: (_) => setState(() {}), // 탭 전환 시 rebuild
+          onTap: (_) => setState(() {}),
         ),
       ),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(children: [
-              // 검색창
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: TextField(
@@ -118,12 +92,8 @@ class _WorkersScreenState extends State<WorkersScreen>
                     hintText: '이름 또는 전화번호로 검색 (블랙리스트 포함)',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() => _searchQuery = '');
-                            })
+                        ? IconButton(icon: const Icon(Icons.clear),
+                            onPressed: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); })
                         : null,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -132,8 +102,6 @@ class _WorkersScreenState extends State<WorkersScreen>
                   onChanged: (v) => setState(() => _searchQuery = v),
                 ),
               ),
-
-              // 결과 수 표시
               AnimatedBuilder(
                 animation: _tabCtrl,
                 builder: (_, __) {
@@ -141,18 +109,14 @@ class _WorkersScreenState extends State<WorkersScreen>
                   if (_searchQuery.isNotEmpty) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
+                      child: Align(alignment: Alignment.centerLeft,
                         child: Text('검색 결과: ${list.length}명 (블랙리스트 포함)',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                      ),
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]))),
                     );
                   }
                   return const SizedBox.shrink();
                 },
               ),
-
-              // 목록
               Expanded(
                 child: AnimatedBuilder(
                   animation: _tabCtrl,
@@ -160,13 +124,10 @@ class _WorkersScreenState extends State<WorkersScreen>
                     final list = _getList(all, _tabCtrl.index);
                     if (list.isEmpty) {
                       return Center(child: Text(
-                        _searchQuery.isNotEmpty
-                            ? '"$_searchQuery" 검색 결과가 없습니다.'
-                            : _tabCtrl.index == 3
-                                ? '블랙리스트에 등록된 근로자가 없습니다.'
-                                : '등록된 근로자가 없습니다.',
-                        style: const TextStyle(color: Colors.grey),
-                      ));
+                        _searchQuery.isNotEmpty ? '"$_searchQuery" 검색 결과가 없습니다.'
+                            : _tabCtrl.index == 3 ? '블랙리스트에 등록된 근로자가 없습니다.'
+                            : '등록된 근로자가 없습니다.',
+                        style: const TextStyle(color: Colors.grey)));
                     }
                     return ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -209,8 +170,7 @@ class _WorkersScreenState extends State<WorkersScreen>
                   decoration: BoxDecoration(
                     color: w.gender == '남' ? Colors.blue.shade50 : Colors.pink.shade50,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: w.gender == '남' ? Colors.blue.shade200 : Colors.pink.shade200),
-                  ),
+                    border: Border.all(color: w.gender == '남' ? Colors.blue.shade200 : Colors.pink.shade200)),
                   child: Text(w.gender, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
                       color: w.gender == '남' ? Colors.blue.shade700 : Colors.pink.shade700)),
                 ),
@@ -218,19 +178,23 @@ class _WorkersScreenState extends State<WorkersScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(color: Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.shade300)),
+                      borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red.shade300)),
                   child: const Text('블랙리스트',
                       style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold)),
                 ),
             ]),
             const SizedBox(height: 4),
             if (w.residentNumber.isNotEmpty)
-              Text('🪪 ${w.residentNumber}', style: const TextStyle(fontSize: 12)),
-            Text('📞 ${PhoneInputFormatter.format(w.phone)}'),
+              Text('🪪 ${ResidentNumberFormatter.format(w.residentNumber)}',
+                  style: const TextStyle(fontSize: 12)),
             if (w.address.isNotEmpty)
               Text('📍 ${w.address}', style: const TextStyle(fontSize: 12)),
-            Text('🏦 ${w.bankName} ${w.bankAccount}'),
+            Text('📱 ${PhoneInputFormatter.format(w.phone)}'),
+            if (w.homePhone.isNotEmpty)
+              Text('☎️ ${PhoneInputFormatter.format(w.homePhone)}',
+                  style: const TextStyle(fontSize: 12)),
+            if (w.bankName.isNotEmpty || w.bankAccount.isNotEmpty)
+              Text('🏦 ${w.bankName} ${w.bankAccount}'),
             if (w.career.isNotEmpty)
               Text('💼 ${w.career}', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
             if (w.notes.isNotEmpty)
@@ -263,15 +227,12 @@ class _WorkersScreenState extends State<WorkersScreen>
     final messenger   = ScaffoldMessenger.of(context);
     final providerRef = context.read<WorkforceProvider>();
     showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: const Row(children: [
-        Icon(Icons.block, color: Colors.red, size: 22), SizedBox(width: 8), Text('블랙리스트 등록'),
-      ]),
+      title: const Row(children: [Icon(Icons.block, color: Colors.red, size: 22), SizedBox(width: 8), Text('블랙리스트 등록')]),
       content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('${worker.name} 님을 블랙리스트에 등록합니다.', style: const TextStyle(fontSize: 14)),
         const SizedBox(height: 14),
         TextField(controller: reasonCtrl, autofocus: true, maxLines: 3,
-            decoration: const InputDecoration(labelText: '사유 *',
-                hintText: '블랙리스트 등록 사유를 입력하세요', border: OutlineInputBorder())),
+            decoration: const InputDecoration(labelText: '사유 *', hintText: '블랙리스트 등록 사유를 입력하세요', border: OutlineInputBorder())),
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
@@ -280,15 +241,12 @@ class _WorkersScreenState extends State<WorkersScreen>
           icon: const Icon(Icons.block, size: 16), label: const Text('등록'),
           onPressed: () {
             final reason = reasonCtrl.text.trim();
-            if (reason.isEmpty) {
-              messenger.showSnackBar(const SnackBar(content: Text('사유를 입력해주세요.'))); return;
-            }
+            if (reason.isEmpty) { messenger.showSnackBar(const SnackBar(content: Text('사유를 입력해주세요.'))); return; }
             providerRef.toggleBlacklist(worker.id, worker.isBlacklisted, reason);
             Navigator.pop(ctx);
-          },
-        ),
+          }),
       ],
-    ));
+    )).then((_) => reasonCtrl.dispose());
   }
 
   void _confirmDelete(BuildContext context, Worker worker) {
@@ -297,11 +255,9 @@ class _WorkersScreenState extends State<WorkersScreen>
       content: Text('${worker.name} 님을 삭제하시겠습니까?'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-        TextButton(
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
+        TextButton(style: TextButton.styleFrom(foregroundColor: Colors.red),
           onPressed: () { context.read<WorkforceProvider>().deleteWorker(worker.id); Navigator.pop(ctx); },
-          child: const Text('삭제'),
-        ),
+          child: const Text('삭제')),
       ],
     ));
   }
@@ -313,11 +269,9 @@ class _WorkersScreenState extends State<WorkersScreen>
         onTap: () { if (file != null) _showImageOptions(context, file); },
         child: Container(
           width: 90, height: 56,
-          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(4)),
           child: file != null
-              ? ClipRRect(borderRadius: BorderRadius.circular(4),
-                  child: Image.file(file, fit: BoxFit.cover))
+              ? ClipRRect(borderRadius: BorderRadius.circular(4), child: Image.file(file, fit: BoxFit.cover))
               : const Icon(Icons.image_not_supported, color: Colors.grey, size: 20),
         ),
       ),
@@ -334,10 +288,8 @@ class _WorkersScreenState extends State<WorkersScreen>
       ]),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.save_alt), label: const Text('다른 위치에 저장'),
-          onPressed: () async { Navigator.pop(ctx); await _saveImageToExternal(context, imageFile); },
-        ),
+        ElevatedButton.icon(icon: const Icon(Icons.save_alt), label: const Text('다른 위치에 저장'),
+          onPressed: () async { Navigator.pop(ctx); await _saveImageToExternal(context, imageFile); }),
       ],
     ));
   }
@@ -348,11 +300,9 @@ class _WorkersScreenState extends State<WorkersScreen>
     try {
       final dest = p.join(outputDir, p.basename(sourceFile.path));
       await sourceFile.copy(dest);
-      if (context.mounted) ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('저장 완료: $dest')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 완료: $dest')));
     } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
     }
   }
 
@@ -376,8 +326,9 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
 
   late TextEditingController _nameCtrl;
   late TextEditingController _residentCtrl;
-  late TextEditingController _phoneCtrl;
   late TextEditingController _addressCtrl;
+  late TextEditingController _phoneCtrl;       // 휴대폰번호
+  late TextEditingController _homePhoneCtrl;   // 집전화번호
   late TextEditingController _bankNameCtrl;
   late TextEditingController _bankAccountCtrl;
   late TextEditingController _careerCtrl;
@@ -393,9 +344,12 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
     final w          = widget.worker;
     _gender          = w?.gender ?? '';
     _nameCtrl        = TextEditingController(text: w?.name ?? '');
-    _residentCtrl    = TextEditingController(text: w?.residentNumber ?? '');
-    _phoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(w?.phone ?? ''));
+    // 주민번호: 저장된 숫자열 → 화면 포맷
+    _residentCtrl    = TextEditingController(
+        text: ResidentNumberFormatter.format(w?.residentNumber ?? ''));
     _addressCtrl     = TextEditingController(text: w?.address ?? '');
+    _phoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(w?.phone ?? ''));
+    _homePhoneCtrl   = TextEditingController(text: PhoneInputFormatter.format(w?.homePhone ?? ''));
     _bankNameCtrl    = TextEditingController(text: w?.bankName ?? '');
     _bankAccountCtrl = TextEditingController(text: w?.bankAccount ?? '');
     _careerCtrl      = TextEditingController(text: w?.career ?? '');
@@ -406,7 +360,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
 
   @override
   void dispose() {
-    for (final c in [_nameCtrl, _residentCtrl, _phoneCtrl, _addressCtrl,
+    for (final c in [_nameCtrl, _residentCtrl, _addressCtrl, _phoneCtrl, _homePhoneCtrl,
         _bankNameCtrl, _bankAccountCtrl, _careerCtrl, _notesCtrl]) c.dispose();
     super.dispose();
   }
@@ -423,23 +377,28 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final cleanPhone = _phoneCtrl.text.replaceAll('-', '').trim();
-    final provider   = context.read<WorkforceProvider>();
+    // 주민번호: 대시 제거 후 숫자만 저장
+    final cleanResident  = ResidentNumberFormatter.strip(_residentCtrl.text);
+    final cleanPhone     = _phoneCtrl.text.replaceAll('-', '').trim();
+    final cleanHomePhone = _homePhoneCtrl.text.replaceAll('-', '').trim();
+    final provider       = context.read<WorkforceProvider>();
+
     if (widget.worker == null) {
       provider.addWorker(
         name: _nameCtrl.text.trim(), gender: _gender,
-        residentNumber: _residentCtrl.text.trim(), phone: cleanPhone,
-        address: _addressCtrl.text.trim(), bankName: _bankNameCtrl.text.trim(),
-        bankAccount: _bankAccountCtrl.text.trim(), career: _careerCtrl.text.trim(),
-        notes: _notesCtrl.text.trim(), idPhotoFront: _frontImage, idPhotoBack: _backImage,
+        residentNumber: cleanResident, address: _addressCtrl.text.trim(),
+        phone: cleanPhone, homePhone: cleanHomePhone,
+        bankName: _bankNameCtrl.text.trim(), bankAccount: _bankAccountCtrl.text.trim(),
+        career: _careerCtrl.text.trim(), notes: _notesCtrl.text.trim(),
+        idPhotoFront: _frontImage, idPhotoBack: _backImage,
       );
     } else {
       provider.updateWorker(id: widget.worker!.id, data: {
         'name': _nameCtrl.text.trim(), 'gender': _gender,
-        'resident_number': _residentCtrl.text.trim(), 'phone': cleanPhone,
-        'address': _addressCtrl.text.trim(), 'bank_name': _bankNameCtrl.text.trim(),
-        'bank_account': _bankAccountCtrl.text.trim(), 'career': _careerCtrl.text.trim(),
-        'notes': _notesCtrl.text.trim(),
+        'resident_number': cleanResident, 'address': _addressCtrl.text.trim(),
+        'phone': cleanPhone, 'home_phone': cleanHomePhone,
+        'bank_name': _bankNameCtrl.text.trim(), 'bank_account': _bankAccountCtrl.text.trim(),
+        'career': _careerCtrl.text.trim(), 'notes': _notesCtrl.text.trim(),
       }, newFrontImage: _frontImage, newBackImage: _backImage);
     }
     Navigator.pop(context);
@@ -455,11 +414,9 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
         decoration: BoxDecoration(
           color: selected ? color.shade100 : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? color.shade400 : Colors.grey.shade300, width: 1.5),
-        ),
+          border: Border.all(color: selected ? color.shade400 : Colors.grey.shade300, width: 1.5)),
         child: Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
-            color: selected ? color.shade700 : Colors.grey.shade500)),
-      ),
+            color: selected ? color.shade700 : Colors.grey.shade500))),
     );
   }
 
@@ -469,8 +426,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
       onTap: () => _pickImage(isFront),
       child: Container(
         height: 100,
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)),
         child: file == null
             ? Column(mainAxisAlignment: MainAxisAlignment.center,
                 children: [const Icon(Icons.add_a_photo), Text(isFront ? '앞면' : '뒷면')])
@@ -485,6 +441,8 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
       title: Text(widget.worker != null ? '근로자 수정' : '근로자 등록'),
       content: SizedBox(width: 520, child: Form(key: _formKey,
         child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+
+          // 이름 + 성별
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Expanded(child: TextFormField(controller: _nameCtrl,
               decoration: const InputDecoration(labelText: '이름 *'),
@@ -493,20 +451,40 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('성별', style: TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 4),
-              Row(children: [
-                _genderButton('남', Colors.blue), const SizedBox(width: 6), _genderButton('여', Colors.pink),
-              ]),
+              Row(children: [_genderButton('남', Colors.blue), const SizedBox(width: 6), _genderButton('여', Colors.pink)]),
             ]),
           ]),
           const SizedBox(height: 6),
-          TextFormField(controller: _residentCtrl,
-              decoration: const InputDecoration(labelText: '주민등록번호', hintText: '000000-0000000')),
-          TextFormField(controller: _phoneCtrl,
-            decoration: const InputDecoration(labelText: '전화번호 *', hintText: '010-0000-0000'),
-            inputFormatters: [PhoneInputFormatter()],
-            validator: (v) => (v == null || v.trim().isEmpty) ? '전화번호를 입력하세요' : null),
+
+          // 주민등록번호 (자동 대시)
+          TextFormField(
+            controller: _residentCtrl,
+            decoration: const InputDecoration(labelText: '주민등록번호', hintText: '000000-0000000'),
+            keyboardType: TextInputType.number,
+            inputFormatters: [ResidentNumberFormatter()],
+          ),
+
+          // 주소
           TextFormField(controller: _addressCtrl, decoration: const InputDecoration(labelText: '주소')),
+
+          // 휴대폰번호 *
+          TextFormField(
+            controller: _phoneCtrl,
+            decoration: const InputDecoration(labelText: '휴대폰번호 *', hintText: '010-0000-0000'),
+            inputFormatters: [PhoneInputFormatter()],
+            validator: (v) => (v == null || v.trim().isEmpty) ? '휴대폰번호를 입력하세요' : null,
+          ),
+
+          // 집전화번호 (선택)
+          TextFormField(
+            controller: _homePhoneCtrl,
+            decoration: const InputDecoration(
+                labelText: '집전화번호', hintText: '02-0000-0000 (선택)'),
+            inputFormatters: [PhoneInputFormatter()],
+          ),
+
           const SizedBox(height: 4),
+          // 은행명 / 계좌번호
           Row(children: [
             Expanded(child: TextFormField(controller: _bankNameCtrl,
                 decoration: const InputDecoration(labelText: '은행명'))),
@@ -514,11 +492,12 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
             Expanded(child: TextFormField(controller: _bankAccountCtrl,
                 decoration: const InputDecoration(labelText: '계좌번호'))),
           ]),
-          TextFormField(controller: _careerCtrl,
-              decoration: const InputDecoration(labelText: '경력사항'), maxLines: 2),
-          TextFormField(controller: _notesCtrl,
-              decoration: const InputDecoration(labelText: '메모'), maxLines: 2),
+
+          TextFormField(controller: _careerCtrl, decoration: const InputDecoration(labelText: '경력사항'), maxLines: 2),
+          TextFormField(controller: _notesCtrl, decoration: const InputDecoration(labelText: '메모'), maxLines: 2),
+
           const SizedBox(height: 16),
+          // 신분증 사진
           Row(children: [_buildImagePicker(true), const SizedBox(width: 10), _buildImagePicker(false)]),
         ])))),
       actions: [
