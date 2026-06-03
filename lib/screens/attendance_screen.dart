@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
 import '../providers/workforce_provider.dart';
 import '../models/worker.dart';
 import '../models/client.dart';
@@ -13,7 +14,7 @@ import '../utils/formatters.dart';
 import '../utils/resident_number_formatter.dart';
 
 // ─────────────────────────────────────────────────────────────
-// 커스텀 자동완성 위젯 (IME 안전 + 마우스 클릭 수정 버전)
+// 커스텀 자동완성 위젯
 // ─────────────────────────────────────────────────────────────
 class _KeyboardAutocomplete<T> extends StatefulWidget {
   final List<T> items;
@@ -37,9 +38,9 @@ class _KeyboardAutocomplete<T> extends StatefulWidget {
 }
 
 class _KeyboardAutocompleteState<T> extends State<_KeyboardAutocomplete<T>> {
-  final LayerLink _layerLink       = LayerLink();
+  final LayerLink _layerLink        = LayerLink();
   OverlayEntry?   _overlay;
-  List<T>         _filtered        = [];
+  List<T>         _filtered         = [];
   int             _highlightedIndex = -1;
   bool            _isHoveringDropdown = false;
 
@@ -118,6 +119,154 @@ class _KeyboardAutocompleteState<T> extends State<_KeyboardAutocomplete<T>> {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 신분증 사진 미리보기 + 크게보기 + 저장 다이얼로그
+// ─────────────────────────────────────────────────────────────
+void _showPhotoViewer(BuildContext context, {
+  required File? front,
+  required File? back,
+  int initialIndex = 0,
+}) {
+  showDialog(
+    context: context,
+    builder: (ctx) => _PhotoViewerDialog(front: front, back: back, initialIndex: initialIndex),
+  );
+}
+
+class _PhotoViewerDialog extends StatefulWidget {
+  final File? front;
+  final File? back;
+  final int initialIndex;
+  const _PhotoViewerDialog({required this.front, required this.back, required this.initialIndex});
+
+  @override
+  State<_PhotoViewerDialog> createState() => _PhotoViewerDialogState();
+}
+
+class _PhotoViewerDialogState extends State<_PhotoViewerDialog> {
+  late int _index;
+
+  @override
+  void initState() { super.initState(); _index = widget.initialIndex; }
+
+  File? get _currentFile => _index == 0 ? widget.front : widget.back;
+  String get _currentLabel => _index == 0 ? '앞면' : '뒷면';
+
+  Future<void> _saveToExternal(BuildContext context) async {
+    final file = _currentFile;
+    if (file == null) return;
+    final outputDir = await FilePicker.platform.getDirectoryPath();
+    if (outputDir == null) return;
+    try {
+      final dest = p.join(outputDir, p.basename(file.path));
+      await file.copy(dest);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('저장 완료: $dest')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('저장 실패: $e')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFront = widget.front != null;
+    final hasBack  = widget.back  != null;
+
+    return AlertDialog(
+      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      title: Row(children: [
+        Expanded(child: Text('신분증 $_currentLabel')),
+        // 앞면/뒷면 전환 탭
+        if (hasFront && hasBack)
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            _tabBtn('앞면', 0),
+            const SizedBox(width: 6),
+            _tabBtn('뒷면', 1),
+          ]),
+      ]),
+      content: SizedBox(
+        width: 500,
+        child: _currentFile != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(_currentFile!, fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Center(
+                        child: Text('이미지를 불러올 수 없습니다.', style: TextStyle(color: Colors.grey)))))
+            : const Center(child: Text('사진이 없습니다.', style: TextStyle(color: Colors.grey))),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('닫기')),
+        if (_currentFile != null)
+          ElevatedButton.icon(
+            icon: const Icon(Icons.save_alt, size: 16),
+            label: const Text('다른 위치에 저장'),
+            onPressed: () => _saveToExternal(context),
+          ),
+      ],
+    );
+  }
+
+  // ignore: non_constant_identifier_names
+  BuildContext get ctx => context;
+
+  Widget _tabBtn(String label, int idx) {
+    final selected = _index == idx;
+    return GestureDetector(
+      onTap: () => setState(() => _index = idx),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? Colors.blue.shade100 : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: selected ? Colors.blue.shade300 : Colors.grey.shade300),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 12,
+            color: selected ? Colors.blue.shade700 : Colors.grey.shade600,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 신분증 사진 썸네일 위젯 (출근 목록 카드용)
+// ─────────────────────────────────────────────────────────────
+class _PhotoThumbnail extends StatelessWidget {
+  final File? file;
+  final String label;
+  final VoidCallback onTap;
+
+  const _PhotoThumbnail({required this.file, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (file == null) return const SizedBox.shrink();
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 44, height: 32,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: Image.file(file!, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 16, color: Colors.grey)),
+          ),
+        ),
+        Text(label, style: TextStyle(fontSize: 9, color: Colors.blue.shade600)),
+      ]),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // AttendanceScreen
 // ─────────────────────────────────────────────────────────────
 class AttendanceScreen extends StatefulWidget {
@@ -151,7 +300,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       case 3:
         if (_customStart == null && _customEnd == null) return all;
         final s = _customStart != null ? DateTime(_customStart!.year, _customStart!.month, _customStart!.day) : DateTime(2000);
-        final e = _customEnd   != null ? DateTime(_customEnd!.year,   _customEnd!.month,   _customEnd!.day, 23, 59, 59) : DateTime(2100);
+        final e = _customEnd   != null ? DateTime(_customEnd!.year, _customEnd!.month, _customEnd!.day, 23, 59, 59) : DateTime(2100);
         return all.where((a) => !a.workDate.isBefore(s) && !a.workDate.isAfter(e)).toList();
       default: return all;
     }
@@ -159,9 +308,11 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
   Future<void> _pickCustomRange() async {
-    final start = await showDatePicker(context: context, initialDate: _customStart ?? DateTime.now(), firstDate: DateTime(2020), lastDate: DateTime(2030), helpText: '시작 날짜 선택');
+    final start = await showDatePicker(context: context, initialDate: _customStart ?? DateTime.now(),
+        firstDate: DateTime(2020), lastDate: DateTime(2030), helpText: '시작 날짜 선택');
     if (start == null || !mounted) return;
-    final end = await showDatePicker(context: context, initialDate: _customEnd ?? start, firstDate: start, lastDate: DateTime(2030), helpText: '종료 날짜 선택');
+    final end = await showDatePicker(context: context, initialDate: _customEnd ?? start,
+        firstDate: start, lastDate: DateTime(2030), helpText: '종료 날짜 선택');
     if (end == null || !mounted) return;
     setState(() { _customStart = start; _customEnd = end; });
   }
@@ -192,8 +343,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         actions: [
           Padding(padding: const EdgeInsets.only(right: 12),
             child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF92D050), foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF92D050), foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
               icon: const Icon(Icons.add), label: const Text('출근 등록'),
               onPressed: () => _showDialog(context))),
         ],
@@ -207,10 +359,12 @@ class _AttendanceScreenState extends State<AttendanceScreen>
             color: Colors.grey.shade50,
             child: Row(children: [
               Expanded(child: OutlinedButton.icon(icon: const Icon(Icons.calendar_today, size: 16),
-                  label: Text(_customStart != null ? DateFormat('yyyy-MM-dd').format(_customStart!) : '시작 날짜'), onPressed: _pickCustomRange)),
+                  label: Text(_customStart != null ? DateFormat('yyyy-MM-dd').format(_customStart!) : '시작 날짜'),
+                  onPressed: _pickCustomRange)),
               const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('~')),
               Expanded(child: OutlinedButton.icon(icon: const Icon(Icons.calendar_today, size: 16),
-                  label: Text(_customEnd != null ? DateFormat('yyyy-MM-dd').format(_customEnd!) : '종료 날짜'), onPressed: _pickCustomRange)),
+                  label: Text(_customEnd != null ? DateFormat('yyyy-MM-dd').format(_customEnd!) : '종료 날짜'),
+                  onPressed: _pickCustomRange)),
               const SizedBox(width: 8),
               if (_customStart != null || _customEnd != null)
                 IconButton(icon: const Icon(Icons.clear, size: 18), tooltip: '초기화',
@@ -227,43 +381,94 @@ class _AttendanceScreenState extends State<AttendanceScreen>
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                   itemCount: list.length,
                   itemBuilder: (context, i) {
-                    final item = list[i];
-                    return Card(margin: const EdgeInsets.only(bottom: 10),
-                      child: InkWell(borderRadius: BorderRadius.circular(8), onTap: () => _showDialog(context, attendance: item),
+                    final item  = list[i];
+                    final front = ImageHelper.getFileFromPath(item.idPhotoPath);
+                    final back  = ImageHelper.getFileFromPath(item.idPhotoBackPath);
+                    final hasPhoto = front != null || back != null;
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _showDialog(context, attendance: item),
                         child: Padding(padding: const EdgeInsets.all(12),
                           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            // 날짜 배지
                             Container(width: 52, padding: const EdgeInsets.symmetric(vertical: 6),
                               decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
                               child: Column(children: [
-                                Text(DateFormat('MM/dd').format(item.workDate), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
-                                Text(DateFormat('E', 'ko').format(item.workDate), style: TextStyle(fontSize: 11, color: Colors.blue.shade400)),
+                                Text(DateFormat('MM/dd').format(item.workDate),
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                                Text(DateFormat('E', 'ko').format(item.workDate),
+                                    style: TextStyle(fontSize: 11, color: Colors.blue.shade400)),
                               ])),
                             const SizedBox(width: 12),
+
+                            // 내용
                             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Row(children: [
                                 Text(item.workerName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                                 if (item.workerGender.isNotEmpty) ...[const SizedBox(width: 6),
                                   Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                    decoration: BoxDecoration(color: item.workerGender == '남' ? Colors.blue.shade50 : Colors.pink.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: item.workerGender == '남' ? Colors.blue.shade200 : Colors.pink.shade200)),
-                                    child: Text(item.workerGender, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: item.workerGender == '남' ? Colors.blue.shade700 : Colors.pink.shade700)))],
+                                    decoration: BoxDecoration(
+                                      color: item.workerGender == '남' ? Colors.blue.shade50 : Colors.pink.shade50,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: item.workerGender == '남' ? Colors.blue.shade200 : Colors.pink.shade200)),
+                                    child: Text(item.workerGender, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                                        color: item.workerGender == '남' ? Colors.blue.shade700 : Colors.pink.shade700)))],
                                 if (item.isPostpaid) ...[const SizedBox(width: 6),
                                   Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                    decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.orange.shade200)),
+                                    decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.orange.shade200)),
                                     child: Text('후불', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange.shade700)))],
                               ]),
                               const SizedBox(height: 4),
-                              Row(children: [const Icon(Icons.business, size: 13, color: Colors.grey), const SizedBox(width: 4), Text(item.clientName, style: const TextStyle(fontSize: 13))]),
+                              Row(children: [const Icon(Icons.business, size: 13, color: Colors.grey), const SizedBox(width: 4),
+                                Text(item.clientName, style: const TextStyle(fontSize: 13))]),
                               const SizedBox(height: 4),
-                              Row(children: [_infoChip('일당', cf.format(item.dailyWage), Colors.lightBlue), const SizedBox(width: 8), _infoChip('수수료', cf.format(item.commission), Colors.green)]),
+                              Row(children: [
+                                _infoChip('일당', cf.format(item.dailyWage), Colors.lightBlue),
+                                const SizedBox(width: 8),
+                                _infoChip('수수료', cf.format(item.commission), Colors.green),
+                              ]),
                               if (item.notes.isNotEmpty) ...[const SizedBox(height: 4),
                                 Row(children: [const Icon(Icons.notes, size: 13, color: Colors.grey), const SizedBox(width: 4),
-                                  Expanded(child: Text(item.notes, style: const TextStyle(fontSize: 12, color: Colors.grey), maxLines: 2, overflow: TextOverflow.ellipsis))])],
+                                  Expanded(child: Text(item.notes, style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                      maxLines: 2, overflow: TextOverflow.ellipsis))])],
                             ])),
-                            Column(mainAxisAlignment: MainAxisAlignment.start, children: [
-                              if (item.idPhotoPath != null) const Padding(padding: EdgeInsets.only(bottom: 4), child: Icon(Icons.image, color: Colors.blue, size: 18)),
-                              IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => _confirmDelete(context, item)),
+
+                            // 오른쪽: 사진 썸네일 + 삭제 버튼
+                            Column(mainAxisAlignment: MainAxisAlignment.start, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                              // 신분증 사진 썸네일 (앞/뒤)
+                              if (hasPhoto)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    if (front != null) ...[
+                                      _PhotoThumbnail(
+                                        file: front, label: '앞면',
+                                        onTap: () => _showPhotoViewer(context, front: front, back: back, initialIndex: 0),
+                                      ),
+                                      if (back != null) const SizedBox(width: 4),
+                                    ],
+                                    if (back != null)
+                                      _PhotoThumbnail(
+                                        file: back, label: '뒷면',
+                                        onTap: () => _showPhotoViewer(context, front: front, back: back, initialIndex: 1),
+                                      ),
+                                  ]),
+                                ),
+                              // 삭제 버튼
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () => _confirmDelete(context, item),
+                              ),
                             ]),
-                          ]))));
+                          ])),
+                      ),
+                    );
                   }),
         ),
       ]),
@@ -273,7 +478,8 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   Widget _infoChip(String label, String value, MaterialColor color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: color.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: color.shade200)),
+      decoration: BoxDecoration(color: color.shade50, borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.shade200)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(label, style: TextStyle(fontSize: 11, color: color.shade600)),
         const SizedBox(width: 4),
@@ -304,31 +510,15 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   final _workerIdNotifier = ValueNotifier<String?>(null);
   final _clientIdNotifier = ValueNotifier<String?>(null);
 
-  // 근로자 필드
-  late TextEditingController _workerNameCtrl;
+  late TextEditingController _workerNameCtrl, _workerResidentCtrl, _workerPhoneCtrl,
+      _workerHomePhoneCtrl, _workerAddressCtrl, _workerBankNameCtrl,
+      _workerBankAccountCtrl, _workerCareerCtrl;
   String _workerGender = '';
-  late TextEditingController _workerResidentCtrl;   // 주민번호 (숫자만 저장)
-  late TextEditingController _workerPhoneCtrl;       // 휴대폰번호
-  late TextEditingController _workerHomePhoneCtrl;   // 집전화번호 (선택)
-  late TextEditingController _workerAddressCtrl;
-  late TextEditingController _workerBankNameCtrl;
-  late TextEditingController _workerBankAccountCtrl;
-  late TextEditingController _workerCareerCtrl;
 
-  // 거래처 필드
-  late TextEditingController _clientNameCtrl;
-  late TextEditingController _clientAddressCtrl;
-  late TextEditingController _clientContactCtrl;
-  late TextEditingController _clientEmailCtrl;
-  late TextEditingController _clientPhoneCtrl;       // 연락처
-  late TextEditingController _clientOfficePhoneCtrl; // 회사번호 (선택)
-  late TextEditingController _clientNotesCtrl;
+  late TextEditingController _clientNameCtrl, _clientAddressCtrl, _clientContactCtrl,
+      _clientEmailCtrl, _clientPhoneCtrl, _clientOfficePhoneCtrl, _clientNotesCtrl;
 
-  // 근무 정보
-  late TextEditingController _wageCtrl;
-  late TextEditingController _commissionRateCtrl;
-  late TextEditingController _notesCtrl;
-
+  late TextEditingController _wageCtrl, _commissionRateCtrl, _notesCtrl;
   late DateTime _selectedDate;
   bool  _isPostpaid = false;
   File? _frontImage, _backImage;
@@ -344,9 +534,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _workerGender = att?.workerGender ?? '';
 
     _workerNameCtrl        = TextEditingController(text: att?.workerName ?? '');
-    // 주민번호: 저장된 숫자열 → 화면 포맷 (자동 대시)
-    _workerResidentCtrl    = TextEditingController(
-        text: ResidentNumberFormatter.format(att?.workerResidentNumber ?? ''));
+    _workerResidentCtrl    = TextEditingController(text: ResidentNumberFormatter.format(att?.workerResidentNumber ?? ''));
     _workerPhoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(att?.workerPhone ?? ''));
     _workerHomePhoneCtrl   = TextEditingController(text: PhoneInputFormatter.format(att?.workerHomePhone ?? ''));
     _workerAddressCtrl     = TextEditingController(text: att?.workerAddress ?? '');
@@ -388,7 +576,6 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     super.dispose();
   }
 
-  // ── 근로자 선택 → 모든 필드 자동 채움 ────────────────────
   void _onWorkerSelected(Worker w) {
     _workerIdNotifier.value = w.id;
     setState(() { _workerGender = w.gender; });
@@ -403,15 +590,14 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     if (w.idPhotoBackPath != null) _backImage  = ImageHelper.getFileFromPath(w.idPhotoBackPath);
   }
 
-  // ── 거래처 선택 → 모든 필드 자동 채움 ────────────────────
   void _onClientSelected(Client c) {
-    _clientIdNotifier.value        = c.id;
-    _clientAddressCtrl.text        = c.address;
-    _clientContactCtrl.text        = c.contactPerson;
-    _clientEmailCtrl.text          = c.email;
-    _clientPhoneCtrl.text          = PhoneInputFormatter.format(c.phone);
-    _clientOfficePhoneCtrl.text    = PhoneInputFormatter.format(c.officePhone);
-    _clientNotesCtrl.text          = c.notes;
+    _clientIdNotifier.value     = c.id;
+    _clientAddressCtrl.text     = c.address;
+    _clientContactCtrl.text     = c.contactPerson;
+    _clientEmailCtrl.text       = c.email;
+    _clientPhoneCtrl.text       = PhoneInputFormatter.format(c.phone);
+    _clientOfficePhoneCtrl.text = PhoneInputFormatter.format(c.officePhone);
+    _clientNotesCtrl.text       = c.notes;
   }
 
   Widget _genderButton(String label, MaterialColor color) {
@@ -440,7 +626,9 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
       },
       child: Container(height: 80,
         decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(4)),
-        child: file == null ? const Center(child: Icon(Icons.camera_alt, color: Colors.grey)) : Image.file(file, fit: BoxFit.cover))));
+        child: file == null
+            ? const Center(child: Icon(Icons.camera_alt, color: Colors.grey))
+            : Image.file(file, fit: BoxFit.cover))));
   }
 
   String? _validateNumber(String? v, String fn) {
@@ -451,11 +639,9 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     return null;
   }
 
-  // ── 저장 ─────────────────────────────────────────────────
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    final provider   = context.read<WorkforceProvider>();
-    // 주민번호: 대시 제거 후 숫자만
+    final provider         = context.read<WorkforceProvider>();
     final cleanResident    = ResidentNumberFormatter.strip(_workerResidentCtrl.text);
     final cleanPhone       = _workerPhoneCtrl.text.replaceAll('-', '').trim();
     final cleanHomePhone   = _workerHomePhoneCtrl.text.replaceAll('-', '').trim();
@@ -493,7 +679,8 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           'worker_gender': _workerGender, 'worker_resident_number': cleanResident,
           'worker_phone': cleanPhone, 'worker_home_phone': cleanHomePhone,
           'worker_address': _workerAddressCtrl.text.trim(),
-          'worker_bank_name': _workerBankNameCtrl.text.trim(), 'worker_bank_account': _workerBankAccountCtrl.text.trim(),
+          'worker_bank_name': _workerBankNameCtrl.text.trim(),
+          'worker_bank_account': _workerBankAccountCtrl.text.trim(),
           'worker_career': _workerCareerCtrl.text.trim(),
           'client_id': cId, 'client_name': _clientNameCtrl.text.trim(),
           'client_address': _clientAddressCtrl.text.trim(),
@@ -506,11 +693,20 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
       }
       Navigator.pop(context);
 
+      // 신규 등록일 때만 제안
       if (widget.attendance == null) {
         final needWorker = wId == null && provider.suggestWorkerRegistration;
         final needClient = cId == null && provider.suggestClientRegistration;
         if (needWorker) {
-          _askRegisterWorker(onDone: needClient ? _askRegisterClient : null);
+          // onDone을 직접 넘기면 pop 직후 context가 아직 정리 중일 수 있음
+          // → addPostFrameCallback으로 다음 프레임에 호출해 안전하게 처리
+          _askRegisterWorker(
+            onDone: needClient
+                ? () => WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted) _askRegisterClient();
+                  })
+                : null,
+          );
         } else if (needClient) {
           _askRegisterClient();
         }
@@ -532,34 +728,57 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   }
 
   // ── 근로자 등록 제안 ──────────────────────────────────────
+  // onDone: 다이얼로그 닫힌 후 실행할 콜백 (등록 or 나중에 어느 쪽이든)
   void _askRegisterWorker({VoidCallback? onDone}) {
     final provider   = context.read<WorkforceProvider>();
     final cleanPhone = _workerPhoneCtrl.text.replaceAll('-', '').trim();
     if (provider.workers.any((w) => w.phone.replaceAll('-','').trim() == cleanPhone)) {
-      onDone?.call(); return;
+      // 이미 등록된 근로자 → 바로 다음 단계
+      if (onDone != null) WidgetsBinding.instance.addPostFrameCallback((_) { if (context.mounted) onDone(); });
+      return;
     }
+
     showDialog(context: context, builder: (ctx) => AlertDialog(
       title: const Row(children: [Icon(Icons.person_add, color: Colors.blue), SizedBox(width: 8), Text('근로자 등록')]),
       content: Text('${_workerNameCtrl.text.trim()} 님을 근로자 목록에 등록하시겠습니까?\n\n등록하면 다음 출근 등록 시 자동완성에서 바로 선택할 수 있습니다.'),
       actions: [
-        TextButton(onPressed: () { Navigator.pop(ctx); onDone?.call(); }, child: const Text('나중에')),
-        ElevatedButton.icon(icon: const Icon(Icons.person_add, size: 16), label: const Text('등록'),
+        // 나중에: 다이얼로그 닫고 → 다음 프레임에 onDone 호출
+        TextButton(
+          onPressed: () {
+            Navigator.pop(ctx);
+            if (onDone != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted) onDone();
+              });
+            }
+          },
+          child: const Text('나중에'),
+        ),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.person_add, size: 16), label: const Text('등록'),
           onPressed: () {
             final cleanResident  = ResidentNumberFormatter.strip(_workerResidentCtrl.text);
-            final cleanPhone     = _workerPhoneCtrl.text.replaceAll('-','').trim();
+            final cp             = _workerPhoneCtrl.text.replaceAll('-','').trim();
             final cleanHomePhone = _workerHomePhoneCtrl.text.replaceAll('-','').trim();
             provider.addWorker(
               name: _workerNameCtrl.text.trim(), gender: _workerGender,
               residentNumber: cleanResident, address: _workerAddressCtrl.text.trim(),
-              phone: cleanPhone, homePhone: cleanHomePhone,
+              phone: cp, homePhone: cleanHomePhone,
               bankName: _workerBankNameCtrl.text.trim(), bankAccount: _workerBankAccountCtrl.text.trim(),
               career: _workerCareerCtrl.text.trim(), notes: _notesCtrl.text.trim(),
               idPhotoFront: _frontImage, idPhotoBack: _backImage,
             );
             Navigator.pop(ctx);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${_workerNameCtrl.text.trim()} 님이 근로자 목록에 등록되었습니다.')));
-            onDone?.call();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${_workerNameCtrl.text.trim()} 님이 근로자 목록에 등록되었습니다.')));
+            }
+            // 등록 완료 → 다음 프레임에 onDone 호출
+            if (onDone != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted) onDone();
+              });
+            }
           }),
       ],
     ));
@@ -567,16 +786,19 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
 
   // ── 거래처 등록 제안 ──────────────────────────────────────
   void _askRegisterClient() {
+    if (!mounted) return;
     final provider   = context.read<WorkforceProvider>();
     final clientName = _clientNameCtrl.text.trim();
     if (clientName.isEmpty) return;
     if (provider.clients.any((c) => c.name == clientName)) return;
+
     showDialog(context: context, builder: (ctx) => AlertDialog(
       title: const Row(children: [Icon(Icons.business, color: Colors.blue), SizedBox(width: 8), Text('거래처 등록')]),
       content: Text('"$clientName"을 거래처 목록에 등록하시겠습니까?\n\n등록하면 다음 출근 등록 시 자동완성에서 바로 선택할 수 있습니다.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('나중에')),
-        ElevatedButton.icon(icon: const Icon(Icons.business, size: 16), label: const Text('등록'),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.business, size: 16), label: const Text('등록'),
           onPressed: () {
             provider.addClient(Client(
               name: clientName, address: _clientAddressCtrl.text.trim(),
@@ -587,7 +809,10 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
               notes: _clientNotesCtrl.text.trim(), createdAt: DateTime.now(),
             ));
             Navigator.pop(ctx);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"$clientName"이 거래처 목록에 등록되었습니다.')));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('"$clientName"이 거래처 목록에 등록되었습니다.')));
+            }
           }),
       ],
     ));
@@ -608,8 +833,9 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
             title: Text('날짜: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}'),
             trailing: const Icon(Icons.calendar_today),
             onTap: () async {
-              final p = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2020), lastDate: DateTime(2030));
-              if (p != null) setState(() => _selectedDate = p);
+              final picked = await showDatePicker(context: context, initialDate: _selectedDate,
+                  firstDate: DateTime(2020), lastDate: DateTime(2030));
+              if (picked != null) setState(() => _selectedDate = picked);
             }),
           const Divider(),
 
@@ -618,7 +844,6 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
             child: Text('근로자 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
           const SizedBox(height: 8),
 
-          // 이름 + 성별
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Expanded(child: _KeyboardAutocomplete<Worker>(
               key: _workerAutoKey, items: workers, displayString: (w) => w.name,
@@ -644,25 +869,16 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           ]),
           const SizedBox(height: 6),
 
-          // 주민등록번호 (자동 대시)
           TextFormField(controller: _workerResidentCtrl,
               decoration: const InputDecoration(labelText: '주민등록번호', hintText: '000000-0000000'),
-              keyboardType: TextInputType.number,
-              inputFormatters: [ResidentNumberFormatter()]),
-
-          // 주소
+              keyboardType: TextInputType.number, inputFormatters: [ResidentNumberFormatter()]),
           TextFormField(controller: _workerAddressCtrl, decoration: const InputDecoration(labelText: '주소')),
-
-          // 휴대폰번호 *
           TextFormField(controller: _workerPhoneCtrl,
               decoration: const InputDecoration(labelText: '휴대폰번호', hintText: '010-0000-0000'),
               inputFormatters: [PhoneInputFormatter()]),
-
-          // 집전화번호 (선택)
           TextFormField(controller: _workerHomePhoneCtrl,
               decoration: const InputDecoration(labelText: '집전화번호', hintText: '02-0000-0000 (선택)'),
               inputFormatters: [PhoneInputFormatter()]),
-
           Row(children: [
             Expanded(child: TextFormField(controller: _workerBankNameCtrl, decoration: const InputDecoration(labelText: '은행명'))),
             const SizedBox(width: 10),
@@ -696,13 +912,11 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           ),
           const SizedBox(height: 6),
           TextFormField(controller: _clientAddressCtrl, decoration: const InputDecoration(labelText: '현장 주소')),
-          // 담당자 + 이메일
           Row(children: [
             Expanded(child: TextFormField(controller: _clientContactCtrl, decoration: const InputDecoration(labelText: '담당자'))),
             const SizedBox(width: 10),
             Expanded(child: TextFormField(controller: _clientEmailCtrl, decoration: const InputDecoration(labelText: '이메일'))),
           ]),
-          // 연락처 + 회사번호
           Row(children: [
             Expanded(child: TextFormField(controller: _clientPhoneCtrl,
                 decoration: const InputDecoration(labelText: '연락처', hintText: '010-0000-0000'),
@@ -719,6 +933,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           const Align(alignment: Alignment.centerLeft,
             child: Text('근무 정보', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
           const SizedBox(height: 8),
+
           Row(children: [
             Expanded(child: TextFormField(controller: _wageCtrl, decoration: const InputDecoration(labelText: '일당 *'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
