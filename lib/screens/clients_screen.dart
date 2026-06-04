@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/workforce_provider.dart';
 import '../models/client.dart';
 import '../utils/formatters.dart';
+import '../utils/korean_text_controller.dart';
 
 class ClientsScreen extends StatefulWidget {
   const ClientsScreen({super.key});
@@ -181,13 +182,13 @@ class _ClientDialogState extends State<_ClientDialog> {
   void initState() {
     super.initState();
     final c          = widget.client;
-    _nameCtrl        = TextEditingController(text: c?.name ?? '');
-    _addressCtrl     = TextEditingController(text: c?.address ?? '');
-    _contactCtrl     = TextEditingController(text: c?.contactPerson ?? '');
-    _emailCtrl       = TextEditingController(text: c?.email ?? '');
-    _phoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(c?.phone ?? ''));
-    _officePhoneCtrl = TextEditingController(text: PhoneInputFormatter.format(c?.officePhone ?? ''));
-    _notesCtrl       = TextEditingController(text: c?.notes ?? '');
+    _nameCtrl        = KoreanTextEditingController(text: c?.name ?? '');
+    _addressCtrl     = KoreanTextEditingController(text: c?.address ?? '');
+    _contactCtrl     = KoreanTextEditingController(text: c?.contactPerson ?? '');
+    _emailCtrl       = KoreanTextEditingController(text: c?.email ?? '');
+    _phoneCtrl       = KoreanTextEditingController(text: PhoneInputFormatter.format(c?.phone ?? ''));
+    _officePhoneCtrl = KoreanTextEditingController(text: PhoneInputFormatter.format(c?.officePhone ?? ''));
+    _notesCtrl       = KoreanTextEditingController(text: c?.notes ?? '');
   }
 
   @override

@@ -8,6 +8,7 @@ import '../models/worker.dart';
 import '../utils/image_helper.dart';
 import '../utils/formatters.dart';
 import '../utils/resident_number_formatter.dart';
+import '../utils/korean_text_controller.dart';
 
 class WorkersScreen extends StatefulWidget {
   const WorkersScreen({super.key});
@@ -344,17 +345,17 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
     super.initState();
     final w          = widget.worker;
     _genderNotifier  = ValueNotifier<String>(w?.gender ?? '');
-    _nameCtrl        = TextEditingController(text: w?.name ?? '');
+    _nameCtrl        = KoreanTextEditingController(text: w?.name ?? '');
     // 주민번호: 저장된 숫자열 → 화면 포맷
-    _residentCtrl    = TextEditingController(
+    _residentCtrl    = KoreanTextEditingController(
         text: ResidentNumberFormatter.format(w?.residentNumber ?? ''));
-    _addressCtrl     = TextEditingController(text: w?.address ?? '');
-    _phoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(w?.phone ?? ''));
-    _homePhoneCtrl   = TextEditingController(text: PhoneInputFormatter.format(w?.homePhone ?? ''));
-    _bankNameCtrl    = TextEditingController(text: w?.bankName ?? '');
-    _bankAccountCtrl = TextEditingController(text: w?.bankAccount ?? '');
-    _careerCtrl      = TextEditingController(text: w?.career ?? '');
-    _notesCtrl       = TextEditingController(text: w?.notes ?? '');
+    _addressCtrl     = KoreanTextEditingController(text: w?.address ?? '');
+    _phoneCtrl       = KoreanTextEditingController(text: PhoneInputFormatter.format(w?.phone ?? ''));
+    _homePhoneCtrl   = KoreanTextEditingController(text: PhoneInputFormatter.format(w?.homePhone ?? ''));
+    _bankNameCtrl    = KoreanTextEditingController(text: w?.bankName ?? '');
+    _bankAccountCtrl = KoreanTextEditingController(text: w?.bankAccount ?? '');
+    _careerCtrl      = KoreanTextEditingController(text: w?.career ?? '');
+    _notesCtrl       = KoreanTextEditingController(text: w?.notes ?? '');
     if (w?.idPhotoPath != null)     _frontImage = ImageHelper.getFileFromPath(w!.idPhotoPath);
     if (w?.idPhotoBackPath != null) _backImage  = ImageHelper.getFileFromPath(w!.idPhotoBackPath);
   }

@@ -12,6 +12,7 @@ import '../models/attendance.dart';
 import '../utils/image_helper.dart';
 import '../utils/formatters.dart';
 import '../utils/resident_number_formatter.dart';
+import '../utils/korean_text_controller.dart';
 
 // ─────────────────────────────────────────────────────────────
 // 커스텀 자동완성 위젯
@@ -527,24 +528,24 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _selectedDate = att?.workDate ?? DateTime.now();
     _genderNotifier.value = att?.workerGender ?? '';
 
-    _workerNameCtrl        = TextEditingController(text: att?.workerName ?? '');
-    _workerResidentCtrl    = TextEditingController(text: ResidentNumberFormatter.format(att?.workerResidentNumber ?? ''));
-    _workerPhoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(att?.workerPhone ?? ''));
-    _workerHomePhoneCtrl   = TextEditingController(text: PhoneInputFormatter.format(att?.workerHomePhone ?? ''));
-    _workerAddressCtrl     = TextEditingController(text: att?.workerAddress ?? '');
-    _workerBankNameCtrl    = TextEditingController(text: att?.workerBankName ?? '');
-    _workerBankAccountCtrl = TextEditingController(text: att?.workerBankAccount ?? '');
-    _workerCareerCtrl      = TextEditingController(text: att?.workerCareer ?? '');
-    _clientNameCtrl        = TextEditingController(text: att?.clientName ?? '');
-    _clientAddressCtrl     = TextEditingController(text: att?.clientAddress ?? '');
-    _clientContactCtrl     = TextEditingController(text: att?.clientContactPerson ?? '');
-    _clientEmailCtrl       = TextEditingController(text: att?.clientEmail ?? '');
-    _clientPhoneCtrl       = TextEditingController(text: PhoneInputFormatter.format(att?.clientPhone ?? ''));
-    _clientOfficePhoneCtrl = TextEditingController(text: PhoneInputFormatter.format(att?.clientOfficePhone ?? ''));
-    _clientNotesCtrl       = TextEditingController(text: att?.clientNotes ?? '');
-    _wageCtrl              = TextEditingController(text: att?.dailyWage != null ? att!.dailyWage.toStringAsFixed(0) : '');
-    _commissionRateCtrl    = TextEditingController(text: att?.commissionRate != null ? att!.commissionRate.toStringAsFixed(0) : '10');
-    _notesCtrl             = TextEditingController(text: att?.notes ?? '');
+    _workerNameCtrl        = KoreanTextEditingController(text: att?.workerName ?? '');
+    _workerResidentCtrl    = KoreanTextEditingController(text: ResidentNumberFormatter.format(att?.workerResidentNumber ?? ''));
+    _workerPhoneCtrl       = KoreanTextEditingController(text: PhoneInputFormatter.format(att?.workerPhone ?? ''));
+    _workerHomePhoneCtrl   = KoreanTextEditingController(text: PhoneInputFormatter.format(att?.workerHomePhone ?? ''));
+    _workerAddressCtrl     = KoreanTextEditingController(text: att?.workerAddress ?? '');
+    _workerBankNameCtrl    = KoreanTextEditingController(text: att?.workerBankName ?? '');
+    _workerBankAccountCtrl = KoreanTextEditingController(text: att?.workerBankAccount ?? '');
+    _workerCareerCtrl      = KoreanTextEditingController(text: att?.workerCareer ?? '');
+    _clientNameCtrl        = KoreanTextEditingController(text: att?.clientName ?? '');
+    _clientAddressCtrl     = KoreanTextEditingController(text: att?.clientAddress ?? '');
+    _clientContactCtrl     = KoreanTextEditingController(text: att?.clientContactPerson ?? '');
+    _clientEmailCtrl       = KoreanTextEditingController(text: att?.clientEmail ?? '');
+    _clientPhoneCtrl       = KoreanTextEditingController(text: PhoneInputFormatter.format(att?.clientPhone ?? ''));
+    _clientOfficePhoneCtrl = KoreanTextEditingController(text: PhoneInputFormatter.format(att?.clientOfficePhone ?? ''));
+    _clientNotesCtrl       = KoreanTextEditingController(text: att?.clientNotes ?? '');
+    _wageCtrl              = KoreanTextEditingController(text: att?.dailyWage != null ? att!.dailyWage.toStringAsFixed(0) : '');
+    _commissionRateCtrl    = KoreanTextEditingController(text: att?.commissionRate != null ? att!.commissionRate.toStringAsFixed(0) : '10');
+    _notesCtrl             = KoreanTextEditingController(text: att?.notes ?? '');
     _workerIdNotifier.value = att?.workerId;
     _clientIdNotifier.value = att?.clientId;
     _isPostpaid = att?.isPostpaid ?? false;
