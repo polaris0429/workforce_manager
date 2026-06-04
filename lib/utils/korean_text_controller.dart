@@ -1,21 +1,9 @@
+// 이 파일은 더 이상 사용하지 않습니다.
+// KoreanTextEditingController는 Windows 한글 IME와 충돌하여
+// 글자가 중복 입력되는 문제를 유발합니다.
+// 삭제하지 않고 비워두어 import 오류를 방지합니다.
+
 import 'package:flutter/material.dart';
 
-/// 한글 IME composing 범위를 항상 빈 범위로 유지하는 컨트롤러.
-///
-/// Windows 한글 IME는 글자 조합 중(ㅇ+ㅣ → '이') composing 범위를
-/// [0, 1] 같이 설정해서 커서가 입력 중인 글자 앞에 표시된다.
-/// 이 컨트롤러는 value 변경 시 composing을 항상 TextRange.empty로
-/// 강제해서 커서가 항상 맨 끝(또는 사용자가 선택한 위치)에 있게 한다.
-class KoreanTextEditingController extends TextEditingController {
-  KoreanTextEditingController({super.text});
-
-  @override
-  set value(TextEditingValue newValue) {
-    // composing 범위가 비어있지 않으면 비워서 커서를 텍스트 끝으로 고정
-    if (!newValue.composing.isCollapsed) {
-      super.value = newValue.copyWith(composing: TextRange.empty);
-    } else {
-      super.value = newValue;
-    }
-  }
-}
+// 하위 호환을 위해 일반 TextEditingController를 그대로 re-export
+typedef KoreanTextEditingController = TextEditingController;
