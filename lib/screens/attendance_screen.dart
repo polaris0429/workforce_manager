@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/attendance_document_service.dart';
 import '../widgets/certificate_photos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -210,6 +212,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     ));
   }
 
+  Future<void> _printAttendance(Attendance item) async {
+    try {
+      final document = await AttendanceDocumentService.saveHtml(item);
+      final opened = await launchUrl(document.uri, mode: LaunchMode.externalApplication);
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('문서는 저장됐지만 브라우저를 열지 못했습니다. 파일을 직접 열어주세요.\n${document.path}')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('근무내역서 생성 또는 열기 실패: $e')));
+      }
+    }
+  }
+
   // ── 등록 제안 다이얼로그 (AttendanceScreen context에서 띄움) ─
   // AttendanceDialog가 닫힌 뒤에도 AttendanceScreen은 살아있으므로
   // 여기서 띄우면 context.mounted 문제가 없음
@@ -397,7 +415,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                   child: CertificatePhotos(compact: true, thumbnailSize: const Size(44, 32),
                                     safetyTraining: photos.safetyTraining,
                                     healthCertificate: photos.healthCertificate)),
-                              IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => _confirmDelete(ctx, item)),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                IconButton(icon: const Icon(Icons.print_outlined, color: Colors.blue, size: 20),
+                                  tooltip: '근무내역 인쇄 / PDF 저장',
+                                  onPressed: () => _printAttendance(item)),
+                                IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
+                                  tooltip: '삭제', onPressed: () => _confirmDelete(ctx, item)),
+                              ]),
                             ]),
                           ]))));
                   }),
