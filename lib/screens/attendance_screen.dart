@@ -1,15 +1,15 @@
 import 'dart:io';
+import '../widgets/certificate_photos.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as p;
 import '../providers/workforce_provider.dart';
 import '../models/worker.dart';
 import '../models/client.dart';
 import '../models/attendance.dart';
 import '../utils/image_helper.dart';
+import '../utils/attendance_photos.dart';
 import '../utils/formatters.dart';
 import '../utils/resident_number_formatter.dart';
 import '../utils/korean_text_controller.dart';
@@ -24,6 +24,7 @@ class _KeyboardAutocomplete<T> extends StatefulWidget {
   final void Function(T) onSelected;
   final TextEditingController controller;
   final FocusNode focusNode;
+  final FocusNode? selectionFocusNode;
   final InputDecoration decoration;
   final String? Function(String?)? validator;
   final VoidCallback? onTextChanged;
@@ -31,7 +32,7 @@ class _KeyboardAutocomplete<T> extends StatefulWidget {
   const _KeyboardAutocomplete({
     required Key key, required this.items, required this.displayString,
     required this.itemBuilder, required this.onSelected, required this.controller,
-    required this.focusNode, required this.decoration, this.validator, this.onTextChanged,
+    required this.focusNode, required this.decoration, this.validator, this.onTextChanged, this.selectionFocusNode,
   }) : super(key: key);
 
   @override
@@ -80,7 +81,7 @@ class _KeyboardAutocompleteState<T> extends State<_KeyboardAutocomplete<T>> {
     final text = widget.displayString(item);
     widget.controller.text = text;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.controller.text == text) {
+      if (mounted && widget.controller.text == text) {
         widget.controller.selection = TextSelection.collapsed(offset: text.length);
       }
     });
@@ -88,7 +89,15 @@ class _KeyboardAutocompleteState<T> extends State<_KeyboardAutocomplete<T>> {
     setState(() { _filtered = []; _highlightedIndex = -1; });
     _isHoveringDropdown = false;
     widget.onSelected(item);
-    WidgetsBinding.instance.addPostFrameCallback((_) { widget.focusNode.requestFocus(); });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = widget.selectionFocusNode ?? widget.focusNode;
+      target.requestFocus();
+      final targetContext = target.context;
+      if (targetContext != null) {
+        Scrollable.ensureVisible(targetContext, duration: const Duration(milliseconds: 150));
+      }
+    });
   }
 
   void _showOrUpdateOverlay() {
@@ -124,69 +133,6 @@ class _KeyboardAutocompleteState<T> extends State<_KeyboardAutocomplete<T>> {
 // ─────────────────────────────────────────────────────────────
 // 신분증 사진 뷰어
 // ─────────────────────────────────────────────────────────────
-void _showPhotoViewer(BuildContext context, {required File? front, required File? back, int initialIndex = 0}) {
-  showDialog(context: context, builder: (ctx) => _PhotoViewerDialog(front: front, back: back, initialIndex: initialIndex));
-}
-
-class _PhotoViewerDialog extends StatefulWidget {
-  final File? front; final File? back; final int initialIndex;
-  const _PhotoViewerDialog({required this.front, required this.back, required this.initialIndex});
-  @override State<_PhotoViewerDialog> createState() => _PhotoViewerDialogState();
-}
-
-class _PhotoViewerDialogState extends State<_PhotoViewerDialog> {
-  late int _index;
-  @override void initState() { super.initState(); _index = widget.initialIndex; }
-  File? get _cur => _index == 0 ? widget.front : widget.back;
-
-  Future<void> _save() async {
-    final file = _cur; if (file == null) return;
-    final dir = await FilePicker.platform.getDirectoryPath(); if (dir == null) return;
-    try {
-      final dest = p.join(dir, p.basename(file.path));
-      await file.copy(dest);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 완료: $dest')));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final label = _index == 0 ? '앞면' : '뒷면';
-    return AlertDialog(
-      contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      title: Row(children: [
-        Expanded(child: Text('신분증 $label')),
-        if (widget.front != null && widget.back != null) ...[
-          _tab('앞면', 0), const SizedBox(width: 6), _tab('뒷면', 1),
-        ],
-      ]),
-      content: SizedBox(width: 500,
-        child: _cur != null
-            ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.file(_cur!, fit: BoxFit.contain))
-            : const Center(child: Text('사진이 없습니다.', style: TextStyle(color: Colors.grey)))),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기')),
-        if (_cur != null) ElevatedButton.icon(icon: const Icon(Icons.save_alt, size: 16), label: const Text('다른 위치에 저장'), onPressed: _save),
-      ],
-    );
-  }
-
-  Widget _tab(String label, int idx) {
-    final sel = _index == idx;
-    return GestureDetector(onTap: () => setState(() => _index = idx),
-      child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: sel ? Colors.blue.shade100 : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: sel ? Colors.blue.shade300 : Colors.grey.shade300)),
-        child: Text(label, style: TextStyle(fontSize: 12,
-            color: sel ? Colors.blue.shade700 : Colors.grey.shade600,
-            fontWeight: sel ? FontWeight.bold : FontWeight.normal))));
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
 // 신분증 썸네일
 // ─────────────────────────────────────────────────────────────
 class _PhotoThumbnail extends StatelessWidget {
@@ -201,7 +147,7 @@ class _PhotoThumbnail extends StatelessWidget {
         child: ClipRRect(borderRadius: BorderRadius.circular(3),
           child: Image.file(file!, fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 16, color: Colors.grey)))),
-      Text(label, style: TextStyle(fontSize: 9, color: Colors.blue.shade600)),
+      SizedBox(width: 70, child: Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 9, color: Colors.blue.shade600))),
     ]));
   }
 }
@@ -281,6 +227,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
     required String notes,
     required File? frontImage,
     required File? backImage,
+    required File? safetyTrainingImage,
+    required File? healthCertificateImage,
     required bool needClient,
     required VoidCallback onClientSuggestion,
   }) {
@@ -305,6 +253,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
               address: address, phone: cleanPhone, homePhone: homePhone.replaceAll('-', '').trim(),
               bankName: bankName, bankAccount: bankAccount, career: career, notes: notes,
               idPhotoFront: frontImage, idPhotoBack: backImage,
+              safetyTrainingPhoto: safetyTrainingImage, healthCertificatePhoto: healthCertificateImage,
             );
             Navigator.pop(ctx);
             ScaffoldMessenger.of(screenCtx).showSnackBar(SnackBar(content: Text('$workerName 님이 근로자 목록에 등록되었습니다.')));
@@ -401,8 +350,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                   itemCount: list.length,
                   itemBuilder: (ctx, i) {
                     final item  = list[i];
-                    final front = ImageHelper.getFileFromPath(item.idPhotoPath);
-                    final back  = ImageHelper.getFileFromPath(item.idPhotoBackPath);
+                    final photos = AttendancePhotos.resolve(item, provider.workers);
+                    final front = photos.front;
+                    final back = photos.back;
                     return Card(margin: const EdgeInsets.only(bottom: 10),
                       child: InkWell(borderRadius: BorderRadius.circular(8), onTap: () => _showDialog(ctx, attendance: item),
                         child: Padding(padding: const EdgeInsets.all(12),
@@ -438,10 +388,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                               if (front != null || back != null)
                                 Padding(padding: const EdgeInsets.only(bottom: 6),
                                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    if (front != null) _PhotoThumbnail(file: front, label: '앞면', onTap: () => _showPhotoViewer(ctx, front: front, back: back, initialIndex: 0)),
-                                    if (front != null && back != null) const SizedBox(width: 4),
-                                    if (back  != null) _PhotoThumbnail(file: back,  label: '뒷면', onTap: () => _showPhotoViewer(ctx, front: front, back: back, initialIndex: 1)),
+                                    if (front != null) _PhotoThumbnail(file: front, label: '신분증 앞면', onTap: () => showDocumentPhotoViewer(ctx, file: front, label: '신분증 앞면')),
+                                    if (front != null && back != null) const SizedBox(width: 8),
+                                    if (back  != null) _PhotoThumbnail(file: back,  label: '신분증 뒷면', onTap: () => showDocumentPhotoViewer(ctx, file: back, label: '신분증 뒷면')),
                                   ])),
+                              if (photos.safetyTraining != null || photos.healthCertificate != null)
+                                Padding(padding: const EdgeInsets.only(bottom: 6),
+                                  child: CertificatePhotos(compact: true, thumbnailSize: const Size(44, 32),
+                                    safetyTraining: photos.safetyTraining,
+                                    healthCertificate: photos.healthCertificate)),
                               IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20), padding: EdgeInsets.zero, constraints: const BoxConstraints(), onPressed: () => _confirmDelete(ctx, item)),
                             ]),
                           ]))));
@@ -470,6 +425,8 @@ typedef _WorkerSuggestionFn = void Function(BuildContext screenCtx, {
   required String phone, required String homePhone, required String address,
   required String bankName, required String bankAccount, required String career, required String notes,
   required File? frontImage, required File? backImage,
+    required File? safetyTrainingImage,
+    required File? healthCertificateImage,
   required bool needClient, required VoidCallback onClientSuggestion,
 });
 
@@ -515,11 +472,12 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   late TextEditingController _wageCtrl, _commissionRateCtrl, _notesCtrl;
 
   late DateTime _selectedDate;
-  bool  _isPostpaid = false;
-  File? _frontImage, _backImage;
+  bool  _isPostpaid = true;
+  File? _frontImage, _backImage, _safetyTrainingImage, _healthCertificateImage;
 
   final FocusNode _workerNameFocus = FocusNode();
   final FocusNode _clientNameFocus = FocusNode();
+  final FocusNode _wageFocus = FocusNode();
 
   @override
   void initState() {
@@ -548,15 +506,21 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _notesCtrl             = KoreanTextEditingController(text: att?.notes ?? '');
     _workerIdNotifier.value = att?.workerId;
     _clientIdNotifier.value = att?.clientId;
-    _isPostpaid = att?.isPostpaid ?? false;
-    if (att?.idPhotoPath != null)     _frontImage = ImageHelper.getFileFromPath(att!.idPhotoPath);
-    if (att?.idPhotoBackPath != null) _backImage  = ImageHelper.getFileFromPath(att!.idPhotoBackPath);
+    _isPostpaid = att?.isPostpaid ?? true;
+    if (att != null) {
+      final photos = AttendancePhotos.resolve(att, context.read<WorkforceProvider>().workers);
+      _frontImage = photos.front;
+      _backImage = photos.back;
+      _safetyTrainingImage = photos.safetyTraining;
+      _healthCertificateImage = photos.healthCertificate;
+    }
   }
 
   @override
   void dispose() {
     _workerIdNotifier.dispose(); _clientIdNotifier.dispose(); _genderNotifier.dispose();
     _workerNameFocus.dispose(); _clientNameFocus.dispose();
+    _wageFocus.dispose();
     for (final c in [_workerNameCtrl, _workerResidentCtrl, _workerPhoneCtrl, _workerHomePhoneCtrl,
       _workerAddressCtrl, _workerBankNameCtrl, _workerBankAccountCtrl, _workerCareerCtrl,
       _clientNameCtrl, _clientAddressCtrl, _clientContactCtrl, _clientEmailCtrl,
@@ -576,8 +540,12 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
     _workerBankNameCtrl.text    = w.bankName;
     _workerBankAccountCtrl.text = w.bankAccount;
     _workerCareerCtrl.text      = w.career;
-    if (w.idPhotoPath != null)     _frontImage = ImageHelper.getFileFromPath(w.idPhotoPath);
-    if (w.idPhotoBackPath != null) _backImage  = ImageHelper.getFileFromPath(w.idPhotoBackPath);
+    setState(() {
+      _frontImage = ImageHelper.getFileFromPath(w.idPhotoPath);
+      _backImage = ImageHelper.getFileFromPath(w.idPhotoBackPath);
+      _safetyTrainingImage = ImageHelper.getFileFromPath(w.safetyTrainingPhotoPath);
+      _healthCertificateImage = ImageHelper.getFileFromPath(w.healthCertificatePhotoPath);
+    });
   }
 
   void _onClientSelected(Client c) {
@@ -615,18 +583,15 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
   }
 
   Widget _buildImagePicker(bool isFront) {
-    final file = isFront ? _frontImage : _backImage;
-    return Expanded(child: InkWell(
-      onTap: () async {
-        final r = await FilePicker.platform.pickFiles(type: FileType.image);
-        if (r != null) setState(() {
-          if (isFront) _frontImage = File(r.files.single.path!);
-          else         _backImage  = File(r.files.single.path!);
-        });
-      },
-      child: Container(height: 80,
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(4)),
-        child: file == null ? const Center(child: Icon(Icons.camera_alt, color: Colors.grey)) : Image.file(file, fit: BoxFit.cover))));
+    return Expanded(child: DocumentPhotoPicker(
+      label: isFront ? '신분증 앞면' : '신분증 뒷면',
+      file: isFront ? _frontImage : _backImage,
+      height: 80,
+      onChanged: (file) => setState(() {
+        if (isFront) { _frontImage = file; }
+        else { _backImage = file; }
+      }),
+    ));
   }
 
   String? _validateNum(String? v, String fn) {
@@ -670,6 +635,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           workDate: _selectedDate, dailyWage: wage, commissionRate: rate,
           isPostpaid: _isPostpaid, notes: _notesCtrl.text.trim(),
           idPhotoFront: _frontImage, idPhotoBack: _backImage,
+          safetyTrainingPhoto: _safetyTrainingImage, healthCertificatePhoto: _healthCertificateImage,
         );
       } else {
         provider.updateAttendance(id: widget.attendance!.id, data: {
@@ -684,7 +650,10 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           'client_email': _clientEmailCtrl.text.trim(), 'client_notes': _clientNotesCtrl.text.trim(),
           'work_date': _selectedDate, 'daily_wage': wage, 'commission_rate': rate,
           'is_postpaid': _isPostpaid, 'notes': _notesCtrl.text.trim(),
-        }, newFrontImage: _frontImage, newBackImage: _backImage);
+          'safety_training_photo_path': _safetyTrainingImage?.path,
+          'health_certificate_photo_path': _healthCertificateImage?.path,
+        }, newFrontImage: _frontImage, newBackImage: _backImage,
+          newSafetyTrainingImage: _safetyTrainingImage, newHealthCertificateImage: _healthCertificateImage);
       }
 
       // 다이얼로그를 닫고 — 이후 모든 UI는 screenContext에서 처리
@@ -725,6 +694,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
             residentNumber: wResident, phone: cleanPhone, homePhone: wHomePhone,
             address: wAddress, bankName: wBankName, bankAccount: wBankAcc,
             career: wCareer, notes: wNotes, frontImage: front, backImage: back,
+            safetyTrainingImage: _safetyTrainingImage, healthCertificateImage: _healthCertificateImage,
             needClient: needClient, onClientSuggestion: triggerClientSuggestion,
           );
         } else if (needClient) {
@@ -773,7 +743,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Expanded(child: _KeyboardAutocomplete<Worker>(
               key: _workerAutoKey, items: workers, displayString: (w) => w.name,
-              controller: _workerNameCtrl, focusNode: _workerNameFocus,
+              controller: _workerNameCtrl, focusNode: _workerNameFocus, selectionFocusNode: _clientNameFocus,
               decoration: const InputDecoration(labelText: '이름 (직접 입력 가능) *', suffixIcon: Icon(Icons.search)),
               validator: (v) => (v == null || v.trim().isEmpty) ? '근로자 이름을 입력하세요' : null,
               onTextChanged: () => _workerIdNotifier.value = null,
@@ -819,7 +789,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
 
           _KeyboardAutocomplete<Client>(
             key: _clientAutoKey, items: clients, displayString: (c) => c.name,
-            controller: _clientNameCtrl, focusNode: _clientNameFocus,
+            controller: _clientNameCtrl, focusNode: _clientNameFocus, selectionFocusNode: _wageFocus,
             decoration: const InputDecoration(labelText: '거래처명 (직접 입력 가능) *', suffixIcon: Icon(Icons.search)),
             validator: (v) => (v == null || v.trim().isEmpty) ? '거래처를 입력하세요' : null,
             onTextChanged: () {
@@ -857,7 +827,7 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           const SizedBox(height: 8),
 
           Row(children: [
-            Expanded(child: TextFormField(controller: _wageCtrl, decoration: const InputDecoration(labelText: '일당 *'),
+            Expanded(child: TextFormField(controller: _wageCtrl, focusNode: _wageFocus, decoration: const InputDecoration(labelText: '일당 *'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d*'))],
                 validator: (v) => _validateNum(v, '일당'))),
@@ -877,6 +847,10 @@ class _AttendanceDialogState extends State<AttendanceDialog> {
           TextFormField(controller: _notesCtrl, decoration: const InputDecoration(labelText: '메모')),
           const SizedBox(height: 12),
           Row(children: [_buildImagePicker(true), const SizedBox(width: 10), _buildImagePicker(false)]),
+          const SizedBox(height: 12),
+          CertificatePhotos(pickerHeight: 80, safetyTraining: _safetyTrainingImage, healthCertificate: _healthCertificateImage,
+            onSafetyChanged: (file) => setState(() => _safetyTrainingImage = file),
+            onHealthChanged: (file) => setState(() => _healthCertificateImage = file)),
         ])))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),

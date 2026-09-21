@@ -12,6 +12,8 @@ class Worker {
   String  notes;
   String? idPhotoPath;
   String? idPhotoBackPath;
+  String? safetyTrainingPhotoPath;
+  String? healthCertificatePhotoPath;
   bool    isBlacklisted;
   String? blacklistReason;
   DateTime createdAt;
@@ -30,6 +32,8 @@ class Worker {
     this.notes          = '',
     this.idPhotoPath,
     this.idPhotoBackPath,
+    this.safetyTrainingPhotoPath,
+    this.healthCertificatePhotoPath,
     this.isBlacklisted   = false,
     this.blacklistReason,
     required this.createdAt,
@@ -50,6 +54,8 @@ class Worker {
       notes:           data['notes']            ?? '',
       idPhotoPath:     data['id_photo_path'],
       idPhotoBackPath: data['id_photo_back_path'],
+      safetyTrainingPhotoPath: data['safety_training_photo_path'],
+      healthCertificatePhotoPath: data['health_certificate_photo_path'],
       isBlacklisted:   _parseBool(data['is_blacklisted']),
       blacklistReason: data['blacklist_reason'],
       createdAt:       _parseDate(data['created_at']),
@@ -71,6 +77,8 @@ class Worker {
       'notes':              notes,
       'id_photo_path':      idPhotoPath,
       'id_photo_back_path': idPhotoBackPath,
+      'safety_training_photo_path': safetyTrainingPhotoPath,
+      'health_certificate_photo_path': healthCertificatePhotoPath,
       'is_blacklisted':     isBlacklisted ? 1 : 0,
       'blacklist_reason':   blacklistReason,
       'created_at':         createdAt.toIso8601String(),

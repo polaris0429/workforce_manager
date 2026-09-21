@@ -26,6 +26,8 @@ class Attendance {
   String   notes;
   String?  idPhotoPath;
   String?  idPhotoBackPath;
+  String?  safetyTrainingPhotoPath;
+  String?  healthCertificatePhotoPath;
   bool     isPostpaid;
   bool     isSettled;
   DateTime createdAt;
@@ -58,6 +60,8 @@ class Attendance {
     this.notes                 = '',
     this.idPhotoPath,
     this.idPhotoBackPath,
+    this.safetyTrainingPhotoPath,
+    this.healthCertificatePhotoPath,
     this.isPostpaid            = false,
     this.isSettled             = true,
     required this.createdAt,
@@ -92,6 +96,8 @@ class Attendance {
       notes:                data['notes']                   ?? '',
       idPhotoPath:          data['id_photo_path'],
       idPhotoBackPath:      data['id_photo_back_path'],
+      safetyTrainingPhotoPath:      data['safety_training_photo_path'],
+      healthCertificatePhotoPath:      data['health_certificate_photo_path'],
       isPostpaid:           _parseBool(data['is_postpaid']),
       isSettled:            _parseBool(data['is_settled']),
       createdAt:            _parseDate(data['created_at']),
@@ -127,6 +133,8 @@ class Attendance {
       'notes':                   notes,
       'id_photo_path':           idPhotoPath,
       'id_photo_back_path':      idPhotoBackPath,
+      'safety_training_photo_path':      safetyTrainingPhotoPath,
+      'health_certificate_photo_path':      healthCertificatePhotoPath,
       'is_postpaid':             isPostpaid ? 1 : 0,
       'is_settled':              isSettled  ? 1 : 0,
       'created_at':              createdAt.toIso8601String(),

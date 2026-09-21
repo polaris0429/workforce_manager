@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -13,16 +14,50 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _localDataPath = '';
   bool   _isRetrying    = false;
+  bool _isChangingPath = false;
+  StreamSubscription? _backupSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadLocalPath();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WorkforceProvider>().backupStatusStream.listen((_) {
+      if (!mounted) return;
+      _backupSubscription = context.read<WorkforceProvider>().backupStatusStream.listen((_) {
         if (mounted) setState(() {});
       });
     });
+  }
+
+  @override
+  void dispose() {
+    _backupSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _changeLocalPath() async {
+    final selected = await FilePicker.platform.getDirectoryPath(dialogTitle: '기본 저장 폴더 선택');
+    if (selected == null || !mounted) return;
+    final provider = context.read<WorkforceProvider>();
+    setState(() => _isChangingPath = true);
+    final navigator = Navigator.of(context, rootNavigator: true);
+    unawaited(showDialog<void>(context: context, barrierDismissible: false,
+      builder: (_) => const PopScope(canPop: false, child: AlertDialog(
+        content: Row(children: [CircularProgressIndicator(), SizedBox(width: 20),
+          Expanded(child: Text('데이터와 사진을 복사하고 있습니다.\n잠시 기다려주세요.'))]),
+      ))));
+    String message;
+    try {
+      await provider.changeDataDirectory(selected);
+      await _loadLocalPath();
+      message = '기본 저장 경로를 변경했습니다. 기존 폴더의 데이터는 보존됩니다.';
+    } catch (e) {
+      message = '저장 경로 변경 실패: $e';
+    } finally {
+      navigator.pop();
+      if (mounted) setState(() => _isChangingPath = false);
+    }
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _loadLocalPath() async {
@@ -121,12 +156,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('데이터 저장 위치'),
           subtitle: Text(_localDataPath.isEmpty ? '불러오는 중...' : _localDataPath,
               style: const TextStyle(fontSize: 12)),
-          trailing: const Tooltip(message: '기본 경로는 변경할 수 없습니다.',
-              child: Icon(Icons.lock_outline, size: 18, color: Colors.grey)),
+          trailing: TextButton.icon(
+              onPressed: _isChangingPath || provider.isLoading || _isRetrying ? null : _changeLocalPath,
+              icon: const Icon(Icons.drive_file_move_outline), label: const Text('변경')),
         )),
         const Padding(
           padding: EdgeInsets.fromLTRB(12, 4, 12, 12),
-          child: Text('앱 데이터는 항상 위 경로(woosin_data 폴더)에 자동 저장됩니다.',
+          child: Text('선택한 위치의 woosin_data 폴더에 저장합니다. 변경 시 기존 데이터와 사진을 함께 복사하며, 원래 폴더는 보존합니다.',
               style: TextStyle(fontSize: 12, color: Colors.grey)),
         ),
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'storage_location.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -65,7 +66,7 @@ class BackupService {
   }
 
   // ── 전체 백업 ─────────────────────────────────────────────
-  Future<void> backupAll({required List<String> backupPaths}) async {
+  Future<void> backupAll({required List<String> backupPaths}) => StorageLocation.withLock(() async {
     if (backupPaths.isEmpty) return;
     await Future.wait(backupPaths.map((path) async {
       if (path.isEmpty) return;
@@ -77,10 +78,10 @@ class BackupService {
         await _addPending(path);
       }
     }));
-  }
+  });
 
   // ── 미완료 큐 재시도 ──────────────────────────────────────
-  Future<void> retryPending() async {
+  Future<void> retryPending() => StorageLocation.withLock(() async {
     final pending = await getPendingPaths();
     if (pending.isEmpty) return;
     print('🔄 미완료 백업 재시도: ${pending.length}개');
@@ -94,7 +95,7 @@ class BackupService {
         print('⏳ 재시도 실패 유지: $path');
       }
     }
-  }
+  });
 
   // ── 이미지 폴더 증분 동기화 ───────────────────────────────
   Future<void> _backupImages(String destRoot) async {
@@ -141,6 +142,7 @@ class BackupService {
         if (!await _isAccessible(rootPath)) return;
         final dest = File(p.join(
             rootPath, 'woosin_data', relPath.replaceAll('/', p.separator)));
+        if (p.equals(p.normalize(srcFile.path), p.normalize(dest.path))) return;
         if (!await dest.parent.exists()) {
           await dest.parent.create(recursive: true);
         }

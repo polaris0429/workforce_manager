@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../services/storage_location.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:excel/excel.dart';
@@ -134,6 +135,33 @@ class WorkforceProvider with ChangeNotifier {
     await prefs.setStringList('backupPaths', _backupPaths);
   }
 
+  Future<void> changeDataDirectory(String selectedFolder) => StorageLocation.withLock(() async {
+    _debounceTimer?.cancel();
+    _retryTimer?.cancel();
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final selected = await Directory(selectedFolder).resolveSymbolicLinks();
+      final target = p.basename(selected).toLowerCase() == 'woosin_data'
+          ? selected : p.join(selected, 'woosin_data');
+      for (final backup in {..._backupPaths, ..._pendingPaths}) {
+        final root = await Directory(backup).exists()
+            ? await Directory(backup).resolveSymbolicLinks() : p.normalize(p.absolute(backup));
+        final backupData = p.join(root, 'woosin_data');
+        if (p.equals(target, backupData) || p.isWithin(target, backupData) || p.isWithin(backupData, target)) {
+          throw StateError('추가 백업 경로와 겹치는 위치입니다. 해당 백업 경로를 먼저 제거하거나 다른 폴더를 선택해주세요.');
+        }
+      }
+      await _dbSvc.changeDataDirectory(selectedFolder);
+      await _loadData();
+      _scheduleBackup();
+    } finally {
+      _isLoading = false;
+      _startRetryTimer();
+      notifyListeners();
+    }
+  });
+
   Future<void> _backupImage(String localPath) async {
     if (_backupPaths.isEmpty) return;
     await _backupSvc.backupImage(localImagePath: localPath, backupPaths: _backupPaths);
@@ -152,30 +180,36 @@ class WorkforceProvider with ChangeNotifier {
     String homePhone = '',
     String bankName = '', String bankAccount = '',
     String career = '', String notes = '',
-    File? idPhotoFront, File? idPhotoBack,
-  }) async {
-    String? fp, bp;
+    File? idPhotoFront, File? idPhotoBack, File? safetyTrainingPhoto, File? healthCertificatePhoto,
+  }) => StorageLocation.withLock(() async {
+    String? fp, bp, sp, hp;
     if (idPhotoFront != null) { fp = await ImageHelper.saveImageLocally(idPhotoFront, workerName: name); await _backupImage(fp); }
     if (idPhotoBack  != null) { bp = await ImageHelper.saveImageLocally(idPhotoBack,  workerName: name); await _backupImage(bp); }
+    if (safetyTrainingPhoto  != null) { sp = await ImageHelper.saveImageLocally(safetyTrainingPhoto,  workerName: name); await _backupImage(sp); }
+    if (healthCertificatePhoto  != null) { hp = await ImageHelper.saveImageLocally(healthCertificatePhoto,  workerName: name); await _backupImage(hp); }
     final w = Worker(
       id: _generateId(), name: name, gender: gender, residentNumber: residentNumber,
       address: address, phone: phone, homePhone: homePhone,
       bankName: bankName, bankAccount: bankAccount, career: career,
       notes: notes, idPhotoPath: fp, idPhotoBackPath: bp, createdAt: DateTime.now(),
+      safetyTrainingPhotoPath: sp,
+      healthCertificatePhotoPath: hp,
     );
     await _dbSvc.insertWorker(w);
     _workers = await _dbSvc.getAllWorkers();
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
   Future<void> updateWorker({required String id, required Map<String, dynamic> data,
-      File? newFrontImage, File? newBackImage}) async {
+      File? newFrontImage, File? newBackImage, File? newSafetyTrainingImage, File? newHealthCertificateImage}) => StorageLocation.withLock(() async {
     final idx = _workers.indexWhere((w) => w.id == id);
     if (idx == -1) return;
     final old   = _workers[idx];
     final wName = (data['name'] as String?)?.isNotEmpty == true ? data['name'] as String : old.name;
     if (newFrontImage != null) { final path = await ImageHelper.saveImageLocally(newFrontImage, workerName: wName); data['id_photo_path']      = path; await _backupImage(path); }
     if (newBackImage  != null) { final path = await ImageHelper.saveImageLocally(newBackImage,  workerName: wName); data['id_photo_back_path'] = path; await _backupImage(path); }
+    if (newSafetyTrainingImage  != null) { final path = await ImageHelper.saveImageLocally(newSafetyTrainingImage,  workerName: wName); data['safety_training_photo_path'] = path; await _backupImage(path); }
+    if (newHealthCertificateImage  != null) { final path = await ImageHelper.saveImageLocally(newHealthCertificateImage,  workerName: wName); data['health_certificate_photo_path'] = path; await _backupImage(path); }
     final updated = Worker(
       id: old.id,
       name:            data['name']               ?? old.name,
@@ -190,6 +224,8 @@ class WorkforceProvider with ChangeNotifier {
       notes:           data['notes']              ?? old.notes,
       idPhotoPath:     data['id_photo_path']      ?? old.idPhotoPath,
       idPhotoBackPath: data['id_photo_back_path'] ?? old.idPhotoBackPath,
+      safetyTrainingPhotoPath: data.containsKey('safety_training_photo_path') ? data['safety_training_photo_path'] : old.safetyTrainingPhotoPath,
+      healthCertificatePhotoPath: data.containsKey('health_certificate_photo_path') ? data['health_certificate_photo_path'] : old.healthCertificatePhotoPath,
       isBlacklisted:   old.isBlacklisted,
       blacklistReason: old.blacklistReason,
       createdAt:       old.createdAt,
@@ -197,15 +233,15 @@ class WorkforceProvider with ChangeNotifier {
     await _dbSvc.updateWorker(updated);
     _workers = await _dbSvc.getAllWorkers();
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
-  Future<void> deleteWorker(String id) async {
+  Future<void> deleteWorker(String id) => StorageLocation.withLock(() async {
     await _dbSvc.deleteWorker(id);
     _workers.removeWhere((w) => w.id == id);
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
-  Future<void> toggleBlacklist(String id, bool currentStatus, String? reason) async {
+  Future<void> toggleBlacklist(String id, bool currentStatus, String? reason) => StorageLocation.withLock(() async {
     final idx = _workers.indexWhere((w) => w.id == id);
     if (idx == -1) return;
     final old = _workers[idx];
@@ -214,24 +250,26 @@ class WorkforceProvider with ChangeNotifier {
       address: old.address, phone: old.phone, homePhone: old.homePhone,
       bankName: old.bankName, bankAccount: old.bankAccount, career: old.career, notes: old.notes,
       idPhotoPath: old.idPhotoPath, idPhotoBackPath: old.idPhotoBackPath,
+      safetyTrainingPhotoPath: old.safetyTrainingPhotoPath,
+      healthCertificatePhotoPath: old.healthCertificatePhotoPath,
       isBlacklisted: !currentStatus, blacklistReason: !currentStatus ? reason : null, createdAt: old.createdAt,
     );
     await _dbSvc.updateWorker(updated);
     _workers[idx] = updated;
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
   // =========================================================
   // 거래처 CRUD
   // =========================================================
-  Future<void> addClient(Client client) async {
+  Future<void> addClient(Client client) => StorageLocation.withLock(() async {
     client.id = _generateId();
     await _dbSvc.insertClient(client);
     _clients.insert(0, client);
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
-  Future<void> updateClient(String id, Map<String, dynamic> data) async {
+  Future<void> updateClient(String id, Map<String, dynamic> data) => StorageLocation.withLock(() async {
     final idx = _clients.indexWhere((c) => c.id == id);
     if (idx == -1) return;
     final old = _clients[idx];
@@ -249,13 +287,13 @@ class WorkforceProvider with ChangeNotifier {
     await _dbSvc.updateClient(updated);
     _clients[idx] = updated;
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
-  Future<void> deleteClient(String id) async {
+  Future<void> deleteClient(String id) => StorageLocation.withLock(() async {
     await _dbSvc.deleteClient(id);
     _clients.removeWhere((c) => c.id == id);
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
   // =========================================================
   // 출근 CRUD
@@ -274,11 +312,13 @@ class WorkforceProvider with ChangeNotifier {
     String clientEmail = '', String clientNotes = '',
     required DateTime workDate,
     required double dailyWage, required double commissionRate, required bool isPostpaid,
-    String notes = '', File? idPhotoFront, File? idPhotoBack,
-  }) async {
-    String? fp, bp;
+    String notes = '', File? idPhotoFront, File? idPhotoBack, File? safetyTrainingPhoto, File? healthCertificatePhoto,
+  }) => StorageLocation.withLock(() async {
+    String? fp, bp, sp, hp;
     if (idPhotoFront != null) { fp = await ImageHelper.saveImageLocally(idPhotoFront, workerName: workerName); await _backupImage(fp); }
     if (idPhotoBack  != null) { bp = await ImageHelper.saveImageLocally(idPhotoBack,  workerName: workerName); await _backupImage(bp); }
+    if (safetyTrainingPhoto  != null) { sp = await ImageHelper.saveImageLocally(safetyTrainingPhoto,  workerName: workerName); await _backupImage(sp); }
+    if (healthCertificatePhoto  != null) { hp = await ImageHelper.saveImageLocally(healthCertificatePhoto,  workerName: workerName); await _backupImage(hp); }
     final comm = dailyWage * (commissionRate / 100);
     final att  = Attendance(
       id: _generateId(), workerId: workerId,
@@ -293,21 +333,25 @@ class WorkforceProvider with ChangeNotifier {
       workDate: workDate, dailyWage: dailyWage, commissionRate: commissionRate,
       commission: comm, netWage: isPostpaid ? dailyWage : (dailyWage - comm),
       notes: notes, idPhotoPath: fp, idPhotoBackPath: bp,
+      safetyTrainingPhotoPath: sp,
+      healthCertificatePhotoPath: hp,
       isPostpaid: isPostpaid, isSettled: !isPostpaid, createdAt: DateTime.now(),
     );
     await _dbSvc.insertAttendance(att);
     _attendanceList.insert(0, att);
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
   Future<void> updateAttendance({required String id, required Map<String, dynamic> data,
-      File? newFrontImage, File? newBackImage}) async {
+      File? newFrontImage, File? newBackImage, File? newSafetyTrainingImage, File? newHealthCertificateImage}) => StorageLocation.withLock(() async {
     final idx = _attendanceList.indexWhere((a) => a.id == id);
     if (idx == -1) return;
     final old   = _attendanceList[idx];
     final wName = (data['worker_name'] as String?) ?? old.workerName;
     if (newFrontImage != null) { final path = await ImageHelper.saveImageLocally(newFrontImage, workerName: wName); data['id_photo_path']      = path; await _backupImage(path); }
     if (newBackImage  != null) { final path = await ImageHelper.saveImageLocally(newBackImage,  workerName: wName); data['id_photo_back_path'] = path; await _backupImage(path); }
+    if (newSafetyTrainingImage  != null) { final path = await ImageHelper.saveImageLocally(newSafetyTrainingImage,  workerName: wName); data['safety_training_photo_path'] = path; await _backupImage(path); }
+    if (newHealthCertificateImage  != null) { final path = await ImageHelper.saveImageLocally(newHealthCertificateImage,  workerName: wName); data['health_certificate_photo_path'] = path; await _backupImage(path); }
 
     if (data.containsKey('daily_wage') && data.containsKey('commission_rate') && data.containsKey('is_postpaid')) {
       final double dw = (data['daily_wage'] as num).toDouble();
@@ -346,6 +390,8 @@ class WorkforceProvider with ChangeNotifier {
       notes:                data['notes']                   ?? old.notes,
       idPhotoPath:          data['id_photo_path']           ?? old.idPhotoPath,
       idPhotoBackPath:      data['id_photo_back_path']      ?? old.idPhotoBackPath,
+      safetyTrainingPhotoPath:      data.containsKey('safety_training_photo_path') ? data['safety_training_photo_path'] : old.safetyTrainingPhotoPath,
+      healthCertificatePhotoPath:      data.containsKey('health_certificate_photo_path') ? data['health_certificate_photo_path'] : old.healthCertificatePhotoPath,
       isPostpaid:           data['is_postpaid']             ?? old.isPostpaid,
       isSettled:            data['is_settled']              ?? old.isSettled,
       createdAt:            old.createdAt,
@@ -353,7 +399,7 @@ class WorkforceProvider with ChangeNotifier {
     await _dbSvc.updateAttendance(updated);
     _attendanceList[idx] = updated;
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
   double? _toDouble(dynamic v) {
     if (v == null) return null; if (v is double) return v;
@@ -361,17 +407,17 @@ class WorkforceProvider with ChangeNotifier {
     return null;
   }
 
-  Future<void> settleCommission(String id) async {
+  Future<void> settleCommission(String id) => StorageLocation.withLock(() async {
     await _dbSvc.settleAttendance(id);
     final idx = _attendanceList.indexWhere((a) => a.id == id);
     if (idx != -1) { _attendanceList[idx].isSettled = true; notifyListeners(); _scheduleBackup(); }
-  }
+  });
 
-  Future<void> deleteAttendance(String id) async {
+  Future<void> deleteAttendance(String id) => StorageLocation.withLock(() async {
     await _dbSvc.deleteAttendance(id);
     _attendanceList.removeWhere((a) => a.id == id);
     notifyListeners(); _scheduleBackup();
-  }
+  });
 
   // =========================================================
   // 통계

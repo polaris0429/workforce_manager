@@ -1,8 +1,7 @@
 import 'dart:io';
+import '../widgets/certificate_photos.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as p;
 import '../providers/workforce_provider.dart';
 import '../models/worker.dart';
 import '../utils/image_helper.dart';
@@ -152,9 +151,17 @@ class _WorkersScreenState extends State<WorkersScreen>
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _buildImagePreview(context, w.idPhotoPath, '앞면'),
-          const SizedBox(width: 8),
-          _buildImagePreview(context, w.idPhotoBackPath, '뒷면'),
+          Column(children: [
+            Row(children: [
+              _buildImagePreview(context, w.idPhotoPath, '신분증 앞면'),
+              const SizedBox(width: 8),
+              _buildImagePreview(context, w.idPhotoBackPath, '신분증 뒷면'),
+            ]),
+            const SizedBox(height: 8),
+            CertificatePhotos(compact: true,
+              safetyTraining: ImageHelper.getFileFromPath(w.safetyTrainingPhotoPath),
+              healthCertificate: ImageHelper.getFileFromPath(w.healthCertificatePhotoPath)),
+          ]),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
@@ -267,7 +274,7 @@ class _WorkersScreenState extends State<WorkersScreen>
     final file = ImageHelper.getFileFromPath(path);
     return Column(children: [
       InkWell(
-        onTap: () { if (file != null) _showImageOptions(context, file); },
+        onTap: () { if (file != null) showDocumentPhotoViewer(context, file: file, label: label); },
         child: Container(
           width: 90, height: 56,
           decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(4)),
@@ -278,33 +285,6 @@ class _WorkersScreenState extends State<WorkersScreen>
       ),
       Text(label, style: const TextStyle(fontSize: 11)),
     ]);
-  }
-
-  void _showImageOptions(BuildContext context, File imageFile) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: const Text('이미지 옵션'),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Image.file(imageFile, height: 200, fit: BoxFit.contain),
-        const SizedBox(height: 16), const Text('이 이미지를 어떻게 하시겠습니까?'),
-      ]),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
-        ElevatedButton.icon(icon: const Icon(Icons.save_alt), label: const Text('다른 위치에 저장'),
-          onPressed: () async { Navigator.pop(ctx); await _saveImageToExternal(context, imageFile); }),
-      ],
-    ));
-  }
-
-  Future<void> _saveImageToExternal(BuildContext context, File sourceFile) async {
-    final outputDir = await FilePicker.platform.getDirectoryPath();
-    if (outputDir == null) return;
-    try {
-      final dest = p.join(outputDir, p.basename(sourceFile.path));
-      await sourceFile.copy(dest);
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 완료: $dest')));
-    } catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
-    }
   }
 
   void _showWorkerDialog(BuildContext context, {Worker? worker}) {
@@ -339,6 +319,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
   late ValueNotifier<String> _genderNotifier;
   File?  _frontImage;
   File?  _backImage;
+  File? _safetyTrainingImage, _healthCertificateImage;
 
   @override
   void initState() {
@@ -358,6 +339,8 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
     _notesCtrl       = KoreanTextEditingController(text: w?.notes ?? '');
     if (w?.idPhotoPath != null)     _frontImage = ImageHelper.getFileFromPath(w!.idPhotoPath);
     if (w?.idPhotoBackPath != null) _backImage  = ImageHelper.getFileFromPath(w!.idPhotoBackPath);
+    _safetyTrainingImage = ImageHelper.getFileFromPath(w?.safetyTrainingPhotoPath);
+    _healthCertificateImage = ImageHelper.getFileFromPath(w?.healthCertificatePhotoPath);
   }
 
   @override
@@ -368,15 +351,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
     super.dispose();
   }
 
-  Future<void> _pickImage(bool isFront) async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.image);
-    if (result != null && result.files.single.path != null) {
-      setState(() {
-        if (isFront) _frontImage = File(result.files.single.path!);
-        else _backImage = File(result.files.single.path!);
-      });
-    }
-  }
+
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
@@ -394,6 +369,7 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
         bankName: _bankNameCtrl.text.trim(), bankAccount: _bankAccountCtrl.text.trim(),
         career: _careerCtrl.text.trim(), notes: _notesCtrl.text.trim(),
         idPhotoFront: _frontImage, idPhotoBack: _backImage,
+        safetyTrainingPhoto: _safetyTrainingImage, healthCertificatePhoto: _healthCertificateImage,
       );
     } else {
       provider.updateWorker(id: widget.worker!.id, data: {
@@ -402,7 +378,10 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
         'phone': cleanPhone, 'home_phone': cleanHomePhone,
         'bank_name': _bankNameCtrl.text.trim(), 'bank_account': _bankAccountCtrl.text.trim(),
         'career': _careerCtrl.text.trim(), 'notes': _notesCtrl.text.trim(),
-      }, newFrontImage: _frontImage, newBackImage: _backImage);
+        'safety_training_photo_path': _safetyTrainingImage?.path,
+        'health_certificate_photo_path': _healthCertificateImage?.path,
+      }, newFrontImage: _frontImage, newBackImage: _backImage,
+        newSafetyTrainingImage: _safetyTrainingImage, newHealthCertificateImage: _healthCertificateImage);
     }
     Navigator.pop(context);
   }
@@ -433,17 +412,14 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
   }
 
   Widget _buildImagePicker(bool isFront) {
-    final file = isFront ? _frontImage : _backImage;
-    return Expanded(child: InkWell(
-      onTap: () => _pickImage(isFront),
-      child: Container(
-        height: 100,
-        decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)),
-        child: file == null
-            ? Column(mainAxisAlignment: MainAxisAlignment.center,
-                children: [const Icon(Icons.add_a_photo), Text(isFront ? '앞면' : '뒷면')])
-            : Image.file(file, fit: BoxFit.cover),
-      ),
+    return Expanded(child: DocumentPhotoPicker(
+      label: isFront ? '신분증 앞면' : '신분증 뒷면',
+      file: isFront ? _frontImage : _backImage,
+      height: 100,
+      onChanged: (file) => setState(() {
+        if (isFront) { _frontImage = file; }
+        else { _backImage = file; }
+      }),
     ));
   }
 
@@ -511,6 +487,10 @@ class _WorkerInputDialogState extends State<WorkerInputDialog> {
           const SizedBox(height: 16),
           // 신분증 사진
           Row(children: [_buildImagePicker(true), const SizedBox(width: 10), _buildImagePicker(false)]),
+          const SizedBox(height: 12),
+          CertificatePhotos(safetyTraining: _safetyTrainingImage, healthCertificate: _healthCertificateImage,
+            onSafetyChanged: (file) => setState(() => _safetyTrainingImage = file),
+            onHealthChanged: (file) => setState(() => _healthCertificateImage = file)),
         ])))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
