@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../widgets/print_document_icon.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/attendance_document_service.dart';
 import '../widgets/certificate_photos.dart';
@@ -416,7 +417,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
                                     safetyTraining: photos.safetyTraining,
                                     healthCertificate: photos.healthCertificate)),
                               Row(mainAxisSize: MainAxisSize.min, children: [
-                                IconButton(icon: const Icon(Icons.print_outlined, color: Colors.blue, size: 20),
+                                IconButton(icon: const PrintDocumentIcon(),
                                   tooltip: '근무내역 인쇄 / PDF 저장',
                                   onPressed: () => _printAttendance(item)),
                                 IconButton(icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
