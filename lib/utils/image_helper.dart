@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
 class ImageHelper {
+  static int _lastImageTimestamp = 0;
   // 기본 저장 루트: Documents/woosin_data/images/
   static const String _dataFolder  = 'woosin_data';
   static const String _imageFolder = 'images';
@@ -42,7 +43,9 @@ class ImageHelper {
     }
 
     final saveDir = await _getWorkerImageDir(workerName);
-    final ts       = DateTime.now().microsecondsSinceEpoch;
+    final now = DateTime.now().microsecondsSinceEpoch;
+    final ts = now > _lastImageTimestamp ? now : _lastImageTimestamp + 1;
+    _lastImageTimestamp = ts;
     final ext      = p.extension(sourceFile.path);
     final fileName = '${ts}$ext';
     final newPath  = p.join(saveDir, fileName);

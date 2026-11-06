@@ -1,10 +1,14 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workforce_manager/models/attendance.dart';
+import 'package:workforce_manager/models/worker.dart';
 import 'package:workforce_manager/services/attendance_document_service.dart';
 import 'package:workforce_manager/services/storage_location.dart';
+
+class _LocalHttpOverrides extends HttpOverrides {}
 
 Attendance sampleAttendance() => Attendance(
     workerName: '홍길동',
@@ -87,27 +91,55 @@ void main() {
       ..clientName = 'A & B <현장>'
       ..workerBankName = '';
     final html = AttendanceDocumentService.buildHtml(record);
-    expect(html, isNot(contains('<script>')));
+    expect(html, isNot(contains('<script>alert(')));
     expect(html, contains('&lt;script&gt;'));
     expect(html, contains('A &amp; B &lt;현장&gt;'));
     expect(html, contains('<td>—</td>'));
   });
 
   test(
-      'HTML is stored in configured data folder as UTF-8 without overwriting previous document',
+      'preview is served from memory without creating documents and resolves worker photos',
       () async {
     final temp = await Directory.systemTemp.createTemp('attendance_document_');
     addTearDown(() => temp.delete(recursive: true));
     SharedPreferences.setMockInitialValues(
         {StorageLocation.preferenceKey: temp.path});
     final record = sampleAttendance();
-    final first = await AttendanceDocumentService.saveHtml(record);
-    final second = await AttendanceDocumentService.saveHtml(record);
-    expect(p.isWithin(p.join(temp.path, 'documents', 'attendance'), first.path),
-        isTrue);
+    final image = await File(p.join(temp.path, 'test.png')).writeAsBytes(
+        base64Decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII='));
+    record.workerId = 'linked';
+    final worker = Worker(
+        id: 'linked',
+        name: record.workerName,
+        phone: '',
+        idPhotoPath: image.path,
+        idPhotoBackPath: image.path,
+        safetyTrainingPhotoPath: image.path,
+        healthCertificatePhotoPath: image.path,
+        createdAt: DateTime.now());
+    addTearDown(AttendanceDocumentService.closePreviews);
+    final first =
+        await AttendanceDocumentService.openPreview(record, workers: [worker]);
+    final second = await AttendanceDocumentService.openPreview(record);
+    expect(first.host, '127.0.0.1');
     expect(first.path, isNot(second.path));
-    expect(await first.readAsString(),
-        AttendanceDocumentService.buildHtml(record));
-    expect(await second.exists(), isTrue);
+    final client = HttpOverrides.runWithHttpOverrides(
+        () => HttpClient(), _LocalHttpOverrides());
+    addTearDown(() => client.close(force: true));
+    final response = await (await client.getUrl(first)).close();
+    expect(response.headers.value('cache-control'), 'no-store');
+    final html = await response.transform(utf8.decoder).join();
+    expect(RegExp('<img ').allMatches(html).length, 4);
+    expect(html, contains('담당자 성명 및 서명'));
+    expect(html, contains('id="attachments" class="attachment-page" hidden'));
+    expect(RegExp('<input[^>]+checked').hasMatch(html), isFalse);
+    expect(RegExp('<input[^>]+disabled').hasMatch(html), isFalse);
+    expect(html, isNot(contains(image.path)));
+    expect(await temp.list().length, 1);
+    final missing =
+        await (await client.getUrl(first.replace(path: '/unknown'))).close();
+    expect(missing.statusCode, 404);
+    await missing.drain<void>();
   });
 }

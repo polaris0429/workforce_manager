@@ -215,11 +215,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> with SingleTickerPr
 
   Future<void> _printAttendance(Attendance item) async {
     try {
-      final document = await AttendanceDocumentService.saveHtml(item);
-      final opened = await launchUrl(document.uri, mode: LaunchMode.externalApplication);
+      final document = await AttendanceDocumentService.openPreview(item, workers: context.read<WorkforceProvider>().workers);
+      final opened = await launchUrl(document, mode: LaunchMode.externalApplication);
       if (!opened && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('문서는 저장됐지만 브라우저를 열지 못했습니다. 파일을 직접 열어주세요.\n${document.path}')));
+          content: Text('브라우저를 열지 못했습니다. 프로그램을 켜둔 상태에서 아래 주소를 열어주세요.\n$document')));
       }
     } catch (e) {
       if (mounted) {
