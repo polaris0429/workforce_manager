@@ -1,3 +1,4 @@
+import 'backup_file.dart';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -292,28 +293,40 @@ class DatabaseService {
   Future<String> get dbPath async => p.join(await StorageLocation.dataDirectory, _dbName);
 
   Future<bool> backupDbTo(String destFolderPath,
-      {Duration timeout = const Duration(seconds: 5)}) async {
+      {Duration timeout = const Duration(seconds: 10)}) async {
+    Directory? snapshotDirectory;
     try {
-      final accessible = await Directory(destFolderPath)
-          .exists()
-          .timeout(timeout, onTimeout: () => false);
-      if (!accessible) return false;
-
-      final destDataDir = Directory(p.join(destFolderPath, _dataFolder));
-      if (!await destDataDir.exists()) await destDataDir.create(recursive: true);
-
-      final srcPath  = await dbPath;
-      final destPath = p.join(destDataDir.path, _dbName);
-      if (p.equals(p.normalize(srcPath), p.normalize(destPath))) return true;
-
-      final db = await database;
-      await db.execute('PRAGMA wal_checkpoint(TRUNCATE);');
-      await File(srcPath).copy(destPath).timeout(timeout);
+      if (!await Directory(destFolderPath).exists().timeout(timeout)) return false;
+      final destination = File(p.join(destFolderPath, _dataFolder, _dbName));
+      if (p.equals(p.normalize(await dbPath), p.normalize(destination.path))) return true;
+      for (final suffix in ['-wal', '-shm', '-journal']) {
+        if (await File('${destination.path}$suffix').exists().timeout(timeout)) {
+          throw FileSystemException('백업 DB를 사용 중인 프로그램을 닫아주세요.', destination.path);
+        }
+      }
+      snapshotDirectory = await Directory.systemTemp.createTemp('woosin_db_snapshot_');
+      final snapshot = File(p.join(snapshotDirectory.path, _dbName));
+      await (await database).execute('VACUUM INTO ?', [snapshot.path]);
+      await BackupFile.replace(snapshot, destination, timeout: timeout,
+          validate: _validateBackupDb, keepPrevious: true);
       return true;
     } catch (e) {
       print('DB 백업 실패 ($destFolderPath): $e');
       return false;
+    } finally {
+      try { await snapshotDirectory?.delete(recursive: true); } catch (_) {}
     }
+  }
+
+  Future<void> _validateBackupDb(File file) async {
+    final copy = await databaseFactory.openDatabase(file.path,
+        options: OpenDatabaseOptions(readOnly: true, singleInstance: false));
+    try {
+      final result = await copy.rawQuery('PRAGMA quick_check');
+      if (result.length != 1 || result.single.values.single != 'ok') {
+        throw StateError('백업 DB 무결성 검사 실패');
+      }
+    } finally { await copy.close(); }
   }
 
   Future<void> close() async {

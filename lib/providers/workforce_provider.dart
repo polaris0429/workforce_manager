@@ -54,10 +54,15 @@ class WorkforceProvider with ChangeNotifier {
   Timer? _retryTimer;
   static const Duration _retryInterval = Duration(seconds: 30);
 
-  WorkforceProvider() { _init(); }
+  bool _disposed = false;
+  late final Future<void> ready;
+  WorkforceProvider() { ready = _init(); }
+  @override
+  void notifyListeners() { if (!_disposed) super.notifyListeners(); }
 
   @override
   void dispose() {
+    _disposed = true;
     _debounceTimer?.cancel();
     _retryTimer?.cancel();
     _backupSvc.dispose();
@@ -70,8 +75,10 @@ class WorkforceProvider with ChangeNotifier {
     _suggestWorkerRegistration = prefs.getBool(_keyWorkerSuggest) ?? true;
     _suggestClientRegistration = prefs.getBool(_keyClientSuggest) ?? true;
     await _loadData();
+    if (_disposed) return;
+    await StorageLocation.withLock(() => _backupSvc.retainPaths(_backupPaths));
     _startRetryTimer();
-    await _refreshPending();
+    await _runBackup();
   }
 
   Future<void> setSuggestWorkerRegistration(bool v) async {
@@ -97,37 +104,52 @@ class WorkforceProvider with ChangeNotifier {
   }
 
   void _scheduleBackup() {
+    if (_disposed) return;
     _debounceTimer?.cancel();
-    _debounceTimer = Timer(_debounce, () {
-      unawaited(_backupSvc.backupAll(backupPaths: _backupPaths).then((_) => _refreshPending()));
-    });
+    _debounceTimer = Timer(_debounce, () => unawaited(_runBackup()));
   }
-
-  Future<void> _refreshPending() async { _pendingPaths = await _backupSvc.getPendingPaths(); notifyListeners(); }
-
+  Future<void> _refreshPending() async {
+    _pendingPaths = await _backupSvc.getPendingPaths();
+    notifyListeners();
+  }
+  Future<void> _runBackup({bool pendingOnly = false}) async {
+    if (_disposed) return;
+    try {
+      if (pendingOnly) {
+        await _backupSvc.retryPending(backupPaths: _backupPaths);
+      } else {
+        await _backupSvc.backupAll(backupPaths: _backupPaths);
+      }
+      await _refreshPending();
+    } catch (error) { debugPrint('자동 백업 실패: $error'); }
+  }
   void _startRetryTimer() {
+    if (_disposed) return;
     _retryTimer?.cancel();
-    _retryTimer = Timer.periodic(_retryInterval, (_) { unawaited(_backupSvc.retryPending().then((_) => _refreshPending())); });
+    _retryTimer = Timer.periodic(_retryInterval, (_) => unawaited(_runBackup(pendingOnly: true)));
   }
-
-  Future<void> retryBackupNow() async { await _backupSvc.retryPending(); await _refreshPending(); }
-
+  Future<void> retryBackupNow() async {
+    _debounceTimer?.cancel();
+    await _backupSvc.backupAll(backupPaths: _backupPaths);
+    await _refreshPending();
+  }
   Future<void> addBackupPath(String path) async {
-    if (path.isEmpty || _backupPaths.contains(path)) return;
-    _backupPaths.add(path); await _persistPaths(); notifyListeners();
-    unawaited(_backupSvc.backupAll(backupPaths: [path]).then((_) => _refreshPending()));
+    await StorageLocation.withLock(() async {
+      if (path.isEmpty || _backupPaths.contains(path)) return;
+      await _backupSvc.validateDestination(path);
+      _backupPaths.add(path);
+      await _persistPaths();
+      await _backupSvc.markPending([path]);
+    });
+    await retryBackupNow();
   }
-
   Future<void> removeBackupPath(String path) async {
-    _backupPaths.remove(path);
-    final pending = await _backupSvc.getPendingPaths();
-    if (pending.contains(path)) {
-      pending.remove(path);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('backup_pending_paths', pending.toList());
-      _pendingPaths = pending;
-    }
-    await _persistPaths(); notifyListeners();
+    await StorageLocation.withLock(() async {
+      _backupPaths.remove(path);
+      await _persistPaths();
+      await _backupSvc.retainPaths(_backupPaths);
+      await _refreshPending();
+    });
   }
 
   Future<void> _persistPaths() async {
@@ -152,6 +174,7 @@ class WorkforceProvider with ChangeNotifier {
           throw StateError('추가 백업 경로와 겹치는 위치입니다. 해당 백업 경로를 먼저 제거하거나 다른 폴더를 선택해주세요.');
         }
       }
+      await _backupSvc.markPending(_backupPaths);
       await _dbSvc.changeDataDirectory(selectedFolder);
       await _loadData();
       _scheduleBackup();
@@ -162,10 +185,11 @@ class WorkforceProvider with ChangeNotifier {
     }
   });
 
-  Future<void> _backupImage(String localPath) async {
-    if (_backupPaths.isEmpty) return;
-    await _backupSvc.backupImage(localImagePath: localPath, backupPaths: _backupPaths);
-  }
+  Future<void> _writeData(Future<void> Function() operation) => StorageLocation.withLock(() async {
+    await _backupSvc.markPending(_backupPaths);
+    await _refreshPending();
+    await operation();
+  });
 
   // epoch 기준 마이크로초 → 완전 고유값 (microsecond 0~999 범위 중복 위험 제거)
   String _generateId() => DateTime.now().microsecondsSinceEpoch.toString();
@@ -181,12 +205,12 @@ class WorkforceProvider with ChangeNotifier {
     String bankName = '', String bankAccount = '',
     String career = '', String notes = '',
     File? idPhotoFront, File? idPhotoBack, File? safetyTrainingPhoto, File? healthCertificatePhoto,
-  }) => StorageLocation.withLock(() async {
+  }) => _writeData(() async {
     String? fp, bp, sp, hp;
-    if (idPhotoFront != null) { fp = await ImageHelper.saveImageLocally(idPhotoFront, workerName: name); await _backupImage(fp); }
-    if (idPhotoBack  != null) { bp = await ImageHelper.saveImageLocally(idPhotoBack,  workerName: name); await _backupImage(bp); }
-    if (safetyTrainingPhoto  != null) { sp = await ImageHelper.saveImageLocally(safetyTrainingPhoto,  workerName: name); await _backupImage(sp); }
-    if (healthCertificatePhoto  != null) { hp = await ImageHelper.saveImageLocally(healthCertificatePhoto,  workerName: name); await _backupImage(hp); }
+    if (idPhotoFront != null) { fp = await ImageHelper.saveImageLocally(idPhotoFront, workerName: name); }
+    if (idPhotoBack  != null) { bp = await ImageHelper.saveImageLocally(idPhotoBack,  workerName: name); }
+    if (safetyTrainingPhoto  != null) { sp = await ImageHelper.saveImageLocally(safetyTrainingPhoto,  workerName: name); }
+    if (healthCertificatePhoto  != null) { hp = await ImageHelper.saveImageLocally(healthCertificatePhoto,  workerName: name); }
     final w = Worker(
       id: _generateId(), name: name, gender: gender, residentNumber: residentNumber,
       address: address, phone: phone, homePhone: homePhone,
@@ -201,15 +225,15 @@ class WorkforceProvider with ChangeNotifier {
   });
 
   Future<void> updateWorker({required String id, required Map<String, dynamic> data,
-      File? newFrontImage, File? newBackImage, File? newSafetyTrainingImage, File? newHealthCertificateImage}) => StorageLocation.withLock(() async {
+      File? newFrontImage, File? newBackImage, File? newSafetyTrainingImage, File? newHealthCertificateImage}) => _writeData(() async {
     final idx = _workers.indexWhere((w) => w.id == id);
     if (idx == -1) return;
     final old   = _workers[idx];
     final wName = (data['name'] as String?)?.isNotEmpty == true ? data['name'] as String : old.name;
-    if (newFrontImage != null) { final path = await ImageHelper.saveImageLocally(newFrontImage, workerName: wName); data['id_photo_path']      = path; await _backupImage(path); }
-    if (newBackImage  != null) { final path = await ImageHelper.saveImageLocally(newBackImage,  workerName: wName); data['id_photo_back_path'] = path; await _backupImage(path); }
-    if (newSafetyTrainingImage  != null) { final path = await ImageHelper.saveImageLocally(newSafetyTrainingImage,  workerName: wName); data['safety_training_photo_path'] = path; await _backupImage(path); }
-    if (newHealthCertificateImage  != null) { final path = await ImageHelper.saveImageLocally(newHealthCertificateImage,  workerName: wName); data['health_certificate_photo_path'] = path; await _backupImage(path); }
+    if (newFrontImage != null) { final path = await ImageHelper.saveImageLocally(newFrontImage, workerName: wName); data['id_photo_path']      = path; }
+    if (newBackImage  != null) { final path = await ImageHelper.saveImageLocally(newBackImage,  workerName: wName); data['id_photo_back_path'] = path; }
+    if (newSafetyTrainingImage  != null) { final path = await ImageHelper.saveImageLocally(newSafetyTrainingImage,  workerName: wName); data['safety_training_photo_path'] = path; }
+    if (newHealthCertificateImage  != null) { final path = await ImageHelper.saveImageLocally(newHealthCertificateImage,  workerName: wName); data['health_certificate_photo_path'] = path; }
     final updated = Worker(
       id: old.id,
       name:            data['name']               ?? old.name,
@@ -235,13 +259,13 @@ class WorkforceProvider with ChangeNotifier {
     notifyListeners(); _scheduleBackup();
   });
 
-  Future<void> deleteWorker(String id) => StorageLocation.withLock(() async {
+  Future<void> deleteWorker(String id) => _writeData(() async {
     await _dbSvc.deleteWorker(id);
     _workers.removeWhere((w) => w.id == id);
     notifyListeners(); _scheduleBackup();
   });
 
-  Future<void> toggleBlacklist(String id, bool currentStatus, String? reason) => StorageLocation.withLock(() async {
+  Future<void> toggleBlacklist(String id, bool currentStatus, String? reason) => _writeData(() async {
     final idx = _workers.indexWhere((w) => w.id == id);
     if (idx == -1) return;
     final old = _workers[idx];
@@ -262,14 +286,14 @@ class WorkforceProvider with ChangeNotifier {
   // =========================================================
   // 거래처 CRUD
   // =========================================================
-  Future<void> addClient(Client client) => StorageLocation.withLock(() async {
+  Future<void> addClient(Client client) => _writeData(() async {
     client.id = _generateId();
     await _dbSvc.insertClient(client);
     _clients.insert(0, client);
     notifyListeners(); _scheduleBackup();
   });
 
-  Future<void> updateClient(String id, Map<String, dynamic> data) => StorageLocation.withLock(() async {
+  Future<void> updateClient(String id, Map<String, dynamic> data) => _writeData(() async {
     final idx = _clients.indexWhere((c) => c.id == id);
     if (idx == -1) return;
     final old = _clients[idx];
@@ -289,7 +313,7 @@ class WorkforceProvider with ChangeNotifier {
     notifyListeners(); _scheduleBackup();
   });
 
-  Future<void> deleteClient(String id) => StorageLocation.withLock(() async {
+  Future<void> deleteClient(String id) => _writeData(() async {
     await _dbSvc.deleteClient(id);
     _clients.removeWhere((c) => c.id == id);
     notifyListeners(); _scheduleBackup();
@@ -313,12 +337,12 @@ class WorkforceProvider with ChangeNotifier {
     required DateTime workDate,
     required double dailyWage, required double commissionRate, required bool isPostpaid,
     String notes = '', File? idPhotoFront, File? idPhotoBack, File? safetyTrainingPhoto, File? healthCertificatePhoto,
-  }) => StorageLocation.withLock(() async {
+  }) => _writeData(() async {
     String? fp, bp, sp, hp;
-    if (idPhotoFront != null) { fp = await ImageHelper.saveImageLocally(idPhotoFront, workerName: workerName); await _backupImage(fp); }
-    if (idPhotoBack  != null) { bp = await ImageHelper.saveImageLocally(idPhotoBack,  workerName: workerName); await _backupImage(bp); }
-    if (safetyTrainingPhoto  != null) { sp = await ImageHelper.saveImageLocally(safetyTrainingPhoto,  workerName: workerName); await _backupImage(sp); }
-    if (healthCertificatePhoto  != null) { hp = await ImageHelper.saveImageLocally(healthCertificatePhoto,  workerName: workerName); await _backupImage(hp); }
+    if (idPhotoFront != null) { fp = await ImageHelper.saveImageLocally(idPhotoFront, workerName: workerName); }
+    if (idPhotoBack  != null) { bp = await ImageHelper.saveImageLocally(idPhotoBack,  workerName: workerName); }
+    if (safetyTrainingPhoto  != null) { sp = await ImageHelper.saveImageLocally(safetyTrainingPhoto,  workerName: workerName); }
+    if (healthCertificatePhoto  != null) { hp = await ImageHelper.saveImageLocally(healthCertificatePhoto,  workerName: workerName); }
     final comm = dailyWage * (commissionRate / 100);
     final att  = Attendance(
       id: _generateId(), workerId: workerId,
@@ -343,15 +367,15 @@ class WorkforceProvider with ChangeNotifier {
   });
 
   Future<void> updateAttendance({required String id, required Map<String, dynamic> data,
-      File? newFrontImage, File? newBackImage, File? newSafetyTrainingImage, File? newHealthCertificateImage}) => StorageLocation.withLock(() async {
+      File? newFrontImage, File? newBackImage, File? newSafetyTrainingImage, File? newHealthCertificateImage}) => _writeData(() async {
     final idx = _attendanceList.indexWhere((a) => a.id == id);
     if (idx == -1) return;
     final old   = _attendanceList[idx];
     final wName = (data['worker_name'] as String?) ?? old.workerName;
-    if (newFrontImage != null) { final path = await ImageHelper.saveImageLocally(newFrontImage, workerName: wName); data['id_photo_path']      = path; await _backupImage(path); }
-    if (newBackImage  != null) { final path = await ImageHelper.saveImageLocally(newBackImage,  workerName: wName); data['id_photo_back_path'] = path; await _backupImage(path); }
-    if (newSafetyTrainingImage  != null) { final path = await ImageHelper.saveImageLocally(newSafetyTrainingImage,  workerName: wName); data['safety_training_photo_path'] = path; await _backupImage(path); }
-    if (newHealthCertificateImage  != null) { final path = await ImageHelper.saveImageLocally(newHealthCertificateImage,  workerName: wName); data['health_certificate_photo_path'] = path; await _backupImage(path); }
+    if (newFrontImage != null) { final path = await ImageHelper.saveImageLocally(newFrontImage, workerName: wName); data['id_photo_path']      = path; }
+    if (newBackImage  != null) { final path = await ImageHelper.saveImageLocally(newBackImage,  workerName: wName); data['id_photo_back_path'] = path; }
+    if (newSafetyTrainingImage  != null) { final path = await ImageHelper.saveImageLocally(newSafetyTrainingImage,  workerName: wName); data['safety_training_photo_path'] = path; }
+    if (newHealthCertificateImage  != null) { final path = await ImageHelper.saveImageLocally(newHealthCertificateImage,  workerName: wName); data['health_certificate_photo_path'] = path; }
 
     if (data.containsKey('daily_wage') && data.containsKey('commission_rate') && data.containsKey('is_postpaid')) {
       final double dw = (data['daily_wage'] as num).toDouble();
@@ -407,13 +431,13 @@ class WorkforceProvider with ChangeNotifier {
     return null;
   }
 
-  Future<void> settleCommission(String id) => StorageLocation.withLock(() async {
+  Future<void> settleCommission(String id) => _writeData(() async {
     await _dbSvc.settleAttendance(id);
     final idx = _attendanceList.indexWhere((a) => a.id == id);
     if (idx != -1) { _attendanceList[idx].isSettled = true; notifyListeners(); _scheduleBackup(); }
   });
 
-  Future<void> deleteAttendance(String id) => StorageLocation.withLock(() async {
+  Future<void> deleteAttendance(String id) => _writeData(() async {
     await _dbSvc.deleteAttendance(id);
     _attendanceList.removeWhere((a) => a.id == id);
     notifyListeners(); _scheduleBackup();

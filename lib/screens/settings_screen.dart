@@ -73,7 +73,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('이미 등록된 경로입니다.')));
       return;
     }
-    await provider.addBackupPath(selected);
+    try {
+      await provider.addBackupPath(selected);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('백업 경로 추가 실패: $error')));
+      return;
+    }
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('백업 경로 추가됨:\n$selected')));
   }
 
@@ -98,7 +103,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _retryNow() async {
     setState(() => _isRetrying = true);
-    await context.read<WorkforceProvider>().retryBackupNow();
+    try {
+      await context.read<WorkforceProvider>().retryBackupNow();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isRetrying = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('백업 실패: $error')));
+      }
+      return;
+    }
     if (mounted) setState(() => _isRetrying = false);
     if (mounted) {
       final pending = context.read<WorkforceProvider>().pendingPaths;
